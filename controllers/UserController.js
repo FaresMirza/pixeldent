@@ -92,5 +92,25 @@ module.exports = {
     } catch (error) {
       res.status(500).json({ error: "Error deleting user", details: error.message });
     }
+  },
+  async getAllAdmins(req, res) {
+    try {
+      const users = await UserModel.getAllUsers();
+      const admins = users.filter(user => user.user_role === "admin");
+      const sanitizedAdmins = admins.map(({ user_password, ...rest }) => rest); // Exclude passwords
+      res.status(200).json({ admins: sanitizedAdmins });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching all admins", details: error.message });
+    }
+  },
+
+  async getAllUsers(req, res) {
+    try {
+      const users = await UserModel.getAllUsers();
+      const sanitizedUsers = users.map(({ user_password, ...rest }) => rest); // Exclude passwords
+      res.status(200).json({ users: sanitizedUsers });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching all users", details: error.message });
+    }
   }
 };
