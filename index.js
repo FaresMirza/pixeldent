@@ -6,6 +6,6 @@ const app = express();
 app.use(express.json()); // Parse JSON bodies
 
 // Define routes
-app.use("/pixeldent/user/", UserRoutes); // Prefix for user routes
+app.use("/pixeldent/user", UserRoutes); // Prefix for user routes
 
 module.exports.handler = serverless(app);
