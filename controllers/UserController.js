@@ -6,13 +6,13 @@ const jwt = require("jsonwebtoken");
 
 // Joi schema for user validation
 const userSchema = Joi.object({
-    user_name: Joi.string().min(1).optional(), // Optional field
-    user_email: Joi.string().email().optional(), // Optional field
-    user_password: Joi.string().min(8).optional(), // Optional field
-    user_books: Joi.array().items(Joi.number().integer()).default([]), // Default is an empty array
-    user_courses: Joi.array().items(Joi.number().integer()).default([]), // Default is an empty array
-    user_role: Joi.string().valid("admin", "normal", "super").required(), // Required and restricted to specific values
-  });
+  user_name: Joi.string().min(1).optional(),
+  user_email: Joi.string().email().optional(),
+  user_password: Joi.string().min(8).optional(),
+  user_books: Joi.array().items(Joi.number().integer()).default([]),
+  user_courses: Joi.array().items(Joi.number().integer()).default([]),
+  user_role: Joi.string().valid("admin", "normal", "super").default("normal"), // Optional with default value
+});
 
 module.exports = {
     async registerUser(req, res) {
