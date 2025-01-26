@@ -27,9 +27,11 @@ module.exports = {
   },
 
   async getAllUsers() {
-    const params = { TableName: TABLE_NAME };
+    const params = {
+      TableName: TABLE_NAME
+    };
     const result = await dynamoDB.send(new ScanCommand(params));
-    return result.Items;
+    return result.Items || [];
   },
 
   async getUserById(user_id) {
