@@ -196,7 +196,72 @@ module.exports = {
       res.status(500).json({ error: "Error updating user", details: error.message });
     }
   },
+  async updateAdminById(req, res) {
+    try {
+      const { user_id } = req.params;
+      const { user_role, user_id: bodyUserId, user_uploaded_books, user_uploaded_courses, ...allowedUpdates } = req.body;
 
+      // Ensure user_id is constant
+      if (bodyUserId && bodyUserId !== user_id) {
+        return res.status(400).json({ error: "user_id cannot be updated." });
+      }
+
+      // Validate input using Joi, excluding restricted fields
+      const { error } = adminSchema.validate({
+        ...allowedUpdates,
+        user_uploaded_books: user_uploaded_books || [],
+        user_uploaded_courses: user_uploaded_courses || []
+      }, { allowUnknown: true });
+      if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+
+      const admin = await UserModel.getUserById(user_id);
+      if (!admin) return res.status(404).json({ error: "Admin not found" });
+
+      // Check if the updated email already exists for a different user
+      if (allowedUpdates.user_email) {
+        const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
+        if (existingUser && existingUser.user_id !== user_id) {
+          return res.status(409).json({ error: "Email already exists. Please use a different email address." });
+        }
+      }
+
+      const updatedFields = {};
+      if (allowedUpdates.user_name !== undefined) updatedFields.user_name = allowedUpdates.user_name;
+      if (allowedUpdates.user_email !== undefined) updatedFields.user_email = allowedUpdates.user_email;
+
+      if (allowedUpdates.user_password !== undefined) {
+        const hashedPassword = await bcrypt.hash(allowedUpdates.user_password, 10);
+        updatedFields.user_password = hashedPassword;
+      }
+
+      // Fetch full details for uploaded books and courses
+      if (user_uploaded_books) {
+        updatedFields.user_uploaded_books = await Promise.all(
+          user_uploaded_books.map(async (bookId) => {
+            const book = await BookModel.getBookById(bookId);
+            if (!book) throw new Error(`Book with ID ${bookId} not found`);
+            return book;
+          })
+        );
+      }
+
+      if (user_uploaded_courses) {
+        updatedFields.user_uploaded_courses = await Promise.all(
+          user_uploaded_courses.map(async (courseId) => {
+            const course = await CourseModel.getCourseById(courseId);
+            if (!course) throw new Error(`Course with ID ${courseId} not found`);
+            return course;
+          })
+        );
+      }
+
+      await UserModel.updateUserById(user_id, updatedFields);
+
+      res.status(200).json({ message: "Admin updated successfully!", admin: { ...admin, ...updatedFields } });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating admin", details: error.message });
+    }
+  },
   async deleteUserById(req, res) {
     try {
       const { user_id } = req.params;
