@@ -49,6 +49,17 @@ module.exports = {
     return result.Item;
   },
 
+  async getUserById(user_id) {
+    const params = {
+      TableName: TABLE_NAME,
+      Key: { user_id },
+    };
+  
+    const result = await dynamoDB.send(new GetCommand(params));
+     
+    return result.Item;
+  },
+
   async updateUserById(user_id, updatedFields) {
     const updateExpressions = [];
     const expressionAttributeNames = {};
