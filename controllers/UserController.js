@@ -157,14 +157,18 @@ module.exports = {
   async getUserById(req, res) {
     try {
       const { user_id } = req.params;
+      const requestingUser = req.user; // Extract user info from the token (middleware)
+  
+      // Check if the user is fetching their own data or if they are a super user
+      if (requestingUser.user_id !== user_id && requestingUser.user_role !== "super") {
+        return res.status(403).json({ error: "Access denied. You can only view your own information." });
+      }
+  
       const user = await UserModel.getUserById(user_id);
       if (!user) return res.status(404).json({ error: "User not found" });
   
-      if (user.user_role !== "normal" && user.user_role !== "super") {
-        return res.status(403).json({ error: "User is not authorized (not normal or super user)." });
-      }
-  
-      const { user_password, ...sanitizedUser } = user; // Exclude password
+      // Exclude password from the response
+      const { user_password, ...sanitizedUser } = user;
       res.status(200).json({ user: sanitizedUser });
     } catch (error) {
       res.status(500).json({ error: "Error fetching user", details: error.message });
