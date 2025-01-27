@@ -212,42 +212,53 @@ async getAdminById(req, res) {
   }
 },
 
-  async updateUserById(req, res) {
-    try {
-      const { user_id } = req.params;
-      const { user_role, user_books, user_courses, user_password, ...allowedUpdates } = req.body;
-  
-      // Validate input using Joi, excluding restricted fields
-      const { error } = userSchema.validate(allowedUpdates, { allowUnknown: true });
-      if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-  
-      const user = await UserModel.getUserById(user_id);
-      if (!user) return res.status(404).json({ error: "User not found" });
-  
-      // Check if the updated email already exists for a different user
-      if (allowedUpdates.user_email) {
-        const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
-        if (existingUser && existingUser.user_id !== user_id) {
-          return res.status(409).json({ error: "Email already exists. Please use a different email address." });
-        }
-      }
-  
-      // Hash the password if it's being updated
-      if (user_password) {
-        const hashedPassword = await bcrypt.hash(user_password, 10);
-        allowedUpdates.user_password = hashedPassword;
-      }
-  
-      const updatedUser = await UserModel.updateUserById(user_id, allowedUpdates);
-  
-      res.status(200).json({
-        message: "User updated successfully!",
-        user: updatedUser, // Use updated user attributes from DynamoDB
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Error updating user", details: error.message });
+async updateUserById(req, res) {
+  try {
+    const { user_id } = req.params;
+    const { user_role, user_books, user_courses, user_password, ...allowedUpdates } = req.body;
+
+    // Ensure the requester is authorized
+    const requestingUser = req.user; // Assuming `req.user` contains the logged-in user's info from the JWT token
+    if (!requestingUser) {
+      return res.status(403).json({ error: "Access denied. Unauthorized request." });
     }
-  },
+
+    // Allow only the user themselves or a superadmin to update the user
+    if (requestingUser.user_role !== "super" && requestingUser.user_id !== user_id) {
+      return res.status(403).json({ error: "Access denied. You can only update your own information." });
+    }
+
+    // Validate input using Joi, excluding restricted fields
+    const { error } = userSchema.validate(allowedUpdates, { allowUnknown: true });
+    if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+
+    const user = await UserModel.getUserById(user_id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Check if the updated email already exists for a different user
+    if (allowedUpdates.user_email) {
+      const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
+      if (existingUser && existingUser.user_id !== user_id) {
+        return res.status(409).json({ error: "Email already exists. Please use a different email address." });
+      }
+    }
+
+    // Hash the password if it's being updated
+    if (user_password) {
+      const hashedPassword = await bcrypt.hash(user_password, 10);
+      allowedUpdates.user_password = hashedPassword;
+    }
+
+    const updatedUser = await UserModel.updateUserById(user_id, allowedUpdates);
+
+    res.status(200).json({
+      message: "User updated successfully!",
+      user: updatedUser, // Use updated user attributes from DynamoDB
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Error updating user", details: error.message });
+  }
+},
   
   async updateUserBooksAndCourses(req, res) {
     try {
