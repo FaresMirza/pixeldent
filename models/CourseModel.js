@@ -28,7 +28,7 @@ module.exports = {
   async getCoursesByInstructor(instructorId) {
     const params = {
       TableName: "COURSES_TABLE",
-      IndexName: "instructor_id-index",
+      IndexName: "admin_id-index",
       KeyConditionExpression: "course_instructor = :instructorId",
       ExpressionAttributeValues: {
         ":instructorId": instructorId,
