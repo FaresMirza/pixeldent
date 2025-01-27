@@ -13,7 +13,6 @@ router.get("/books/:book_id", BookController.getBookById); // Get a book by ID
 router.get("/users/:user_id", UserController.getUserById); // Get a user by ID
 router.get("/admins/:user_id",UserController.getAdminById)
 router.put("/admins/:user_id",UserController.updateAdminById)
-router.put("/updaterole/:user_id",UserController.updateAdminRoleById)
 router.put("/userCourseAndBooks/:user_id",UserController.updateUserBooksAndCourses)
 router.delete("/users/:user_id",UserController.updateUserById)
 

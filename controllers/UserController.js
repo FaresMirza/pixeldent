@@ -328,37 +328,7 @@ module.exports = {
       res.status(500).json({ error: "Error updating admin", details: error.message });
     }
   },
-  async updateAdminRoleById(req, res) {
-    try {
-      const { user_id } = req.params;
-      const { user_role } = req.body;
   
-      // Validate the user_role field
-      if (!user_role || !["admin", "super"].includes(user_role)) {
-        return res.status(400).json({ error: "Invalid or missing user_role. Allowed values: admin, super" });
-      }
-  
-      // Fetch the admin user by ID
-      const admin = await UserModel.getAdminById(user_id);
-      if (!admin || admin.user_role !== "admin") {
-        return res.status(404).json({ error: "Admin not found" });
-      }
-  
-      // Update the user_role field
-      const updatedFields = { user_role };
-      await UserModel.updateUserById(user_id, updatedFields);
-  
-      // Fetch the updated admin details
-      const updatedAdmin = await UserModel.getAdminById(user_id);
-  
-      res.status(200).json({
-        message: "Admin role updated successfully!",
-        admin: updatedAdmin,
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Error updating admin role", details: error.message });
-    }
-  },
   async deleteUserById(req, res) {
     try {
       const { user_id } = req.params;
