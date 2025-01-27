@@ -109,7 +109,7 @@ module.exports = {
   async getUserById(req, res) {
     try {
       const { user_id } = req.params;
-      const user = await UserModel.getNormalUserById(user_id);
+      const user = await UserModel.getUserById(user_id);
       if (!user) return res.status(404).json({ error: "User not found" });
 
       if (user.user_role !== "normal") {
