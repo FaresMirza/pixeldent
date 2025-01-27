@@ -175,26 +175,42 @@ module.exports = {
     }
   }
 ,
-  async getAdminById(req, res) {
-    try {
-      const { user_id } = req.params;
+async getAdminById(req, res) {
+  try {
+    const { user_id } = req.params;
 
-      // Validate user_id
-      if (!user_id || typeof user_id !== "string") {
-        return res.status(400).json({ error: "Invalid user_id format" });
-      }
-
-      const admin = await UserModel.getAdminById(user_id);
-      if (!admin || admin.user_role !== "admin" && admin.user_role !== "super") {
-        return res.status(404).json({ error: "Admin not found" });
-      }
-
-      const { user_password, ...sanitizedAdmin } = admin; // Exclude password
-      res.status(200).json({ admin: sanitizedAdmin });
-    } catch (error) {
-      res.status(500).json({ error: "Error fetching admin", details: error.message });
+    // Validate user_id
+    if (!user_id || typeof user_id !== "string") {
+      return res.status(400).json({ error: "Invalid user_id format" });
     }
-  },
+
+    // Ensure the requester is authorized
+    const requestingUser = req.user; // Assuming `req.user` contains the logged-in user's info from the JWT token
+    if (!requestingUser) {
+      return res.status(403).json({ error: "Access denied. Unauthorized request." });
+    }
+
+    const admin = await UserModel.getAdminById(user_id);
+
+    // Check if the admin exists and their role
+    if (!admin || (admin.user_role !== "admin" && admin.user_role !== "super")) {
+      return res.status(404).json({ error: "Admin not found" });
+    }
+
+    // Check if the requester is allowed to access this admin's details
+    if (
+      requestingUser.user_role !== "super" &&
+      requestingUser.user_id !== user_id
+    ) {
+      return res.status(403).json({ error: "Access denied. You can only view your own information." });
+    }
+
+    const { user_password, ...sanitizedAdmin } = admin; // Exclude password
+    res.status(200).json({ admin: sanitizedAdmin });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching admin", details: error.message });
+  }
+},
 
   async updateUserById(req, res) {
     try {
