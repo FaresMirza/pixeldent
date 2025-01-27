@@ -30,18 +30,29 @@ module.exports = {
   async registerUser(req, res) {
     try {
       const { user_name, user_email, user_password } = req.body;
-
+  
       // Validate input using Joi
-      const { error } = userSchema.validate({ user_name, user_email, user_password, user_books: [], user_courses: [], user_role: "normal" });
-      if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-
+      const { error } = userSchema.validate({
+        user_name,
+        user_email,
+        user_password,
+        user_books: [],
+        user_courses: [],
+        user_role: "normal",
+      });
+      if (error) {
+        return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+      }
+  
       const existingUser = await UserModel.getUserByEmail(user_email);
-      if (existingUser) return res.status(409).json({ error: "Email already exists. Please use a different email address." });
-
+      if (existingUser) {
+        return res.status(409).json({ error: "Email already exists. Please use a different email address." });
+      }
+  
       const user_id = uuidv4();
       const hashedPassword = await bcrypt.hash(user_password, 10);
-
-      // Initialize the user with empty books and courses
+  
+      // Initialize the user with empty books and courses and set the state to active
       const newUser = {
         user_id,
         user_name,
@@ -50,8 +61,9 @@ module.exports = {
         user_role: "normal",
         user_books: [],
         user_courses: [],
+        user_state: "active", // Set user_state to active by default
       };
-
+  
       await UserModel.createUser(newUser);
       res.status(201).json({ message: "User registered successfully!", user: newUser });
     } catch (error) {
