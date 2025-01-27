@@ -15,7 +15,8 @@ router.get("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.g
 router.get("/admins/:user_id",verifyToken,verifyRole(["super"]), UserController.getAdminById)
 router.put("/approve/:user_id",verifyToken,verifyRole(["super"]), UserController.updateAdminState)
 router.put("/userCourseAndBooks/:user_id",verifyToken,verifyRole(["super"]), UserController.updateUserBooksAndCourses)
-router.delete("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.updateUserById)
+router.put("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.updateUserById)
+router.delete("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.deleteUserById)
 
 
 module.exports = router;
