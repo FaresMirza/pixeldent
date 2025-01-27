@@ -139,23 +139,14 @@ module.exports = {
   async getAdminById(req, res) {
     try {
       const { user_id } = req.params;
-
-      // Validate the user_id format
-      if (!user_id || typeof user_id !== "string") {
-        return res.status(400).json({ error: "Invalid user_id format" });
-      }
-
-      // Fetch admin by ID
       const admin = await UserModel.getUserById(user_id);
-      if (!admin) {
-        return res.status(404).json({ error: "Admin not found" });
-      }
+      if (!admin) return res.status(404).json({ error: "Admin not found" });
 
       if (admin.user_role !== "admin") {
         return res.status(403).json({ error: "User is not an admin" });
       }
 
-      // Enrich uploaded books and courses with full details
+      // Fetch full details for user_uploaded_books and user_uploaded_courses
       const fullBooks = await Promise.all(
         (admin.user_uploaded_books || []).map(async (bookId) => {
           const book = await BookModel.getBookById(bookId);
@@ -170,13 +161,11 @@ module.exports = {
         })
       );
 
-      res.status(200).json({
-        admin: {
-          ...admin,
-          user_uploaded_books: fullBooks,
-          user_uploaded_courses: fullCourses,
-        },
-      });
+      admin.user_uploaded_books = fullBooks;
+      admin.user_uploaded_courses = fullCourses;
+
+      const { user_password, ...sanitizedAdmin } = admin; // Exclude password
+      res.status(200).json({ admin: sanitizedAdmin });
     } catch (error) {
       res.status(500).json({ error: "Error fetching admin", details: error.message });
     }
