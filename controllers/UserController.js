@@ -159,15 +159,15 @@ module.exports = {
       const { user_id } = req.params;
       const user = await UserModel.getUserById(user_id);
       if (!user) return res.status(404).json({ error: "User not found" });
-
-      if (user.user_role !== "normal") {
-        return res.status(403).json({ error: "User is not a normal user" });
+  
+      if (user.user_role !== "normal" && user.user_role !== "super") {
+        return res.status(403).json({ error: "User is not authorized (not normal or super user)." });
       }
-
+  
       const { user_password, ...sanitizedUser } = user; // Exclude password
       res.status(200).json({ user: sanitizedUser });
     } catch (error) {
-      res.status(500).json({ error: "Error fetching normal user", details: error.message });
+      res.status(500).json({ error: "Error fetching user", details: error.message });
     }
   }
 ,
