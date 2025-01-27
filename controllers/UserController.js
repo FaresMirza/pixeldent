@@ -107,6 +107,11 @@ module.exports = {
         return res.status(404).json({ error: "User not found." });
       }
   
+      // Check if the user is active
+      if (user.user_state !== "active") {
+        return res.status(403).json({ error: "User account is inactive. Please contact support." });
+      }
+  
       // Verify password
       const isPasswordValid = await bcrypt.compare(user_password, user.user_password);
       if (!isPasswordValid) {
