@@ -314,12 +314,18 @@ async updateUserById(req, res) {
       const { user_id } = req.params;
       const { user_role, user_state, ...allowedUpdates } = req.body; // Exclude user_role and user_state
   
+      // Ensure the requester is authorized
+      const requestingUser = req.user; // Assuming `req.user` contains the logged-in user's info from the JWT token
+      if (!requestingUser || (requestingUser.user_role !== "super" && requestingUser.user_id !== user_id)) {
+        return res.status(403).json({ error: "Access denied. Only the admin or a superadmin can update this information." });
+      }
+  
       // Validate input using Joi, excluding restricted fields
       const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
       if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
   
       const admin = await UserModel.getUserById(user_id);
-      if (!admin || admin.user_role !== "admin") {
+      if (!admin || (admin.user_role !== "admin" && admin.user_role !== "super")) {
         return res.status(404).json({ error: "Admin not found" });
       }
   
@@ -331,6 +337,7 @@ async updateUserById(req, res) {
         }
       }
   
+      // Prepare updated fields
       const updatedFields = {};
       if (allowedUpdates.user_name !== undefined) updatedFields.user_name = allowedUpdates.user_name;
       if (allowedUpdates.user_email !== undefined) updatedFields.user_email = allowedUpdates.user_email;
