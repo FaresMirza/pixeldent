@@ -61,15 +61,13 @@ module.exports = {
 
   async registerAdmin(req, res) {
     try {
-      const { user_name, user_email, user_password, user_uploaded_books = [], user_uploaded_courses = [] } = req.body;
+      const { user_name, user_email, user_password } = req.body;
   
       // Validate input using Joi
       const { error } = adminSchema.validate({
         user_name,
         user_email,
         user_password,
-        user_uploaded_books,
-        user_uploaded_courses,
       });
       if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
   
@@ -79,31 +77,12 @@ module.exports = {
       const user_id = uuidv4();
       const hashedPassword = await bcrypt.hash(user_password, 10);
   
-      // Fetch full details for uploaded books and courses
-      const fullUploadedBooks = await Promise.all(
-        user_uploaded_books.map(async (bookId) => {
-          const book = await BookModel.getBookById(bookId);
-          if (!book) throw new Error(`Book with ID ${bookId} not found`);
-          return book;
-        })
-      );
-  
-      const fullUploadedCourses = await Promise.all(
-        user_uploaded_courses.map(async (courseId) => {
-          const course = await CourseModel.getCourseById(courseId);
-          if (!course) throw new Error(`Course with ID ${courseId} not found`);
-          return course;
-        })
-      );
-  
       const newAdmin = {
         user_id,
         user_name,
         user_email,
         user_password: hashedPassword,
         user_role: "admin",
-        user_uploaded_books: fullUploadedBooks,
-        user_uploaded_courses: fullUploadedCourses,
         user_state: "inactive", // Set default state to inactive
       };
   
