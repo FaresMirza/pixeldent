@@ -109,33 +109,20 @@ module.exports = {
   async getUserById(req, res) {
     try {
       const { user_id } = req.params;
-      const user = await UserModel.getUserById(user_id);
+      const user = await UserModel.getNormalUserById(user_id);
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      // Fetch full details for user_books and user_courses
-      const fullBooks = await Promise.all(
-        user.user_books.map(async (bookId) => {
-          const book = await BookModel.getBookById(bookId);
-          return book || { error: `Book with ID ${bookId} not found` };
-        })
-      );
-
-      const fullCourses = await Promise.all(
-        user.user_courses.map(async (courseId) => {
-          const course = await CourseModel.getCourseById(courseId);
-          return course || { error: `Course with ID ${courseId} not found` };
-        })
-      );
-
-      user.user_books = fullBooks;
-      user.user_courses = fullCourses;
+      if (user.user_role !== "normal") {
+        return res.status(403).json({ error: "User is not a normal user" });
+      }
 
       const { user_password, ...sanitizedUser } = user; // Exclude password
       res.status(200).json({ user: sanitizedUser });
     } catch (error) {
-      res.status(500).json({ error: "Error fetching user", details: error.message });
+      res.status(500).json({ error: "Error fetching normal user", details: error.message });
     }
-  },
+  }
+,
   async getAdminById(req, res) {
     try {
       const { user_id } = req.params;

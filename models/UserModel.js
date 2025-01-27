@@ -41,9 +41,12 @@ module.exports = {
     };
 
     const result = await dynamoDB.send(new GetCommand(params));
-    return result.Item || null;
+    if (result.Item && result.Item.user_role === "normal") {
+      return result.Item;
+    }
+    return null; // Return null if the user is not found or not a normal user
   },
-  
+
   async getAdminById(user_id) {
     const params = {
       TableName: TABLE_NAME,
