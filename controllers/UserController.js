@@ -339,7 +339,7 @@ module.exports = {
       }
   
       // Fetch the admin user by ID
-      const admin = await UserModel.getUserById(user_id);
+      const admin = await UserModel.getAdminById(user_id);
       if (!admin || admin.user_role !== "admin") {
         return res.status(404).json({ error: "Admin not found" });
       }
@@ -349,7 +349,7 @@ module.exports = {
       await UserModel.updateUserById(user_id, updatedFields);
   
       // Fetch the updated admin details
-      const updatedAdmin = await UserModel.getUserById(user_id);
+      const updatedAdmin = await UserModel.getAdminById(user_id);
   
       res.status(200).json({
         message: "Admin role updated successfully!",
