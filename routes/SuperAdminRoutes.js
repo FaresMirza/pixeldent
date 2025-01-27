@@ -2,18 +2,19 @@ const express = require("express");
 const UserController = require("../controllers/UserController");
 const BookController = require("../controllers/BookController")
 const CourseController = require("../controllers/CourseController")
+const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 const router = express.Router();
 
-router.post("/courses", CourseController.registerCourse)
-router.post("/books", BookController.registerBook)
-router.get("/courses", CourseController.getAllCourses)
-router.get("/books", BookController.getAllBooks); // Get all books
-router.get("/courses/:course_id", CourseController.getCourseById)
-router.get("/books/:book_id", BookController.getBookById); // Get a book by ID
-router.get("/users/:user_id", UserController.getUserById); // Get a user by ID
-router.get("/admins/:user_id",UserController.getAdminById)
-router.put("/admins/:user_id",UserController.updateAdminById)
-router.put("/userCourseAndBooks/:user_id",UserController.updateUserBooksAndCourses)
-router.delete("/users/:user_id",UserController.updateUserById)
+router.post("/courses",verifyToken,verifyRole(["super"]),  CourseController.registerCourse)
+router.post("/books",verifyToken,verifyRole(["super"]), BookController.registerBook)
+router.get("/courses",verifyToken,verifyRole(["super"]), CourseController.getAllCourses)
+router.get("/books",verifyToken,verifyRole(["super"]), BookController.getAllBooks); // Get all books
+router.get("/courses/:course_id",verifyToken,verifyRole(["super"]), CourseController.getCourseById)
+router.get("/books/:book_id",verifyToken,verifyRole(["super"]), BookController.getBookById); // Get a book by ID
+router.get("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.getUserById); // Get a user by ID
+router.get("/admins/:user_id",verifyToken,verifyRole(["super"]), UserController.getAdminById)
+router.put("/admins/:user_id",verifyToken,verifyRole(["super"]), UserController.updateAdminById)
+router.put("/userCourseAndBooks/:user_id",verifyToken,verifyRole(["super"]), UserController.updateUserBooksAndCourses)
+router.delete("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.updateUserById)
 
 module.exports = router;
