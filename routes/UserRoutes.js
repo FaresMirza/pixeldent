@@ -12,7 +12,7 @@ router.get("/books",verifyToken,verifyRole(["normal"]), BookController.getAllBoo
 router.get("/courses/:course_id",verifyToken,verifyRole(["normal"]), CourseController.getCourseById)
 router.get("/books/:book_id",verifyToken,verifyRole(["normal"]), BookController.getBookById); // Get a book by ID
 router.get("/users/:user_id",verifyToken,verifyRole(["normal"]), UserController.getUserById); // Get a user by ID
-router.delete("/users/:user_id",verifyToken,verifyRole(["normal"]), UserController.updateUserById)
+router.put("/users/:user_id",verifyToken,verifyRole(["normal"]), UserController.updateUserById)
 
 
 
