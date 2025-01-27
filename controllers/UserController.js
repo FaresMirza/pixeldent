@@ -141,31 +141,55 @@ module.exports = {
     try {
       const { user_id } = req.params;
       const { user_role, user_books, user_courses, ...allowedUpdates } = req.body;
-  
+
       // Validate input using Joi, excluding restricted fields
       const { error } = userSchema.validate(allowedUpdates, { allowUnknown: true });
       if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-  
+
       const user = await UserModel.getUserById(user_id);
       if (!user) return res.status(404).json({ error: "User not found" });
-  
+
+      // Check if the updated email already exists for a different user
+      if (allowedUpdates.user_email) {
+        const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
+        if (existingUser && existingUser.user_id !== user_id) {
+          return res.status(409).json({ error: "Email already exists. Please use a different email address." });
+        }
+      }
+
       const updatedFields = {};
       if (allowedUpdates.user_name !== undefined) updatedFields.user_name = allowedUpdates.user_name;
       if (allowedUpdates.user_email !== undefined) updatedFields.user_email = allowedUpdates.user_email;
-  
+
       if (allowedUpdates.user_password !== undefined) {
         const hashedPassword = await bcrypt.hash(allowedUpdates.user_password, 10);
         updatedFields.user_password = hashedPassword;
       }
-  
+
       await UserModel.updateUserById(user_id, updatedFields);
-  
-      // Return the updated user without modifying user_books or user_courses
+
+      // Enrich user_books and user_courses with full details
+      const fullBooks = await Promise.all(
+        user.user_books.map(async (bookId) => {
+          const book = await BookModel.getBookById(bookId);
+          return book || { error: `Book with ID ${bookId} not found` };
+        })
+      );
+
+      const fullCourses = await Promise.all(
+        user.user_courses.map(async (courseId) => {
+          const course = await CourseModel.getCourseById(courseId);
+          return course || { error: `Course with ID ${courseId} not found` };
+        })
+      );
+
       res.status(200).json({
         message: "User updated successfully!",
         user: {
           ...user,
           ...updatedFields,
+          user_books: fullBooks,
+          user_courses: fullCourses,
         },
       });
     } catch (error) {
