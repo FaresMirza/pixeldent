@@ -16,7 +16,4 @@ router.put("/admins/:user_id",UserController.updateAdminById)
 router.put("/userCourseAndBooks/:user_id",UserController.updateUserBooksAndCourses)
 router.delete("/users/:user_id",UserController.updateUserById)
 
-
-
-
 module.exports = router;

@@ -314,26 +314,6 @@ module.exports = {
         updatedFields.user_password = hashedPassword;
       }
   
-      if (allowedUpdates.user_uploaded_books !== undefined) {
-        updatedFields.user_uploaded_books = await Promise.all(
-          allowedUpdates.user_uploaded_books.map(async (bookId) => {
-            const book = await BookModel.getBookById(bookId);
-            if (!book) throw new Error(`Book with ID ${bookId} not found`);
-            return book;
-          })
-        );
-      }
-  
-      if (allowedUpdates.user_uploaded_courses !== undefined) {
-        updatedFields.user_uploaded_courses = await Promise.all(
-          allowedUpdates.user_uploaded_courses.map(async (courseId) => {
-            const course = await CourseModel.getCourseById(courseId);
-            if (!course) throw new Error(`Course with ID ${courseId} not found`);
-            return course;
-          })
-        );
-      }
-  
       // Update the admin in the database
       await UserModel.updateUserById(user_id, updatedFields);
   
@@ -342,14 +322,41 @@ module.exports = {
   
       res.status(200).json({
         message: "Admin updated successfully!",
-        admin: {
-          ...updatedAdmin,
-          user_uploaded_books: updatedFields.user_uploaded_books || admin.user_uploaded_books,
-          user_uploaded_courses: updatedFields.user_uploaded_courses || admin.user_uploaded_courses,
-        },
+        admin: updatedAdmin,
       });
     } catch (error) {
       res.status(500).json({ error: "Error updating admin", details: error.message });
+    }
+  },
+  async updateAdminRoleById(req, res) {
+    try {
+      const { user_id } = req.params;
+      const { user_role } = req.body;
+  
+      // Validate the user_role field
+      if (!user_role || !["admin", "super"].includes(user_role)) {
+        return res.status(400).json({ error: "Invalid or missing user_role. Allowed values: admin, super" });
+      }
+  
+      // Fetch the admin user by ID
+      const admin = await UserModel.getUserById(user_id);
+      if (!admin || admin.user_role !== "admin") {
+        return res.status(404).json({ error: "Admin not found" });
+      }
+  
+      // Update the user_role field
+      const updatedFields = { user_role };
+      await UserModel.updateUserById(user_id, updatedFields);
+  
+      // Fetch the updated admin details
+      const updatedAdmin = await UserModel.getUserById(user_id);
+  
+      res.status(200).json({
+        message: "Admin role updated successfully!",
+        admin: updatedAdmin,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating admin role", details: error.message });
     }
   },
   async deleteUserById(req, res) {
