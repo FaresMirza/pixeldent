@@ -199,19 +199,10 @@ module.exports = {
   async updateAdminById(req, res) {
     try {
       const { user_id } = req.params;
-      const { user_role, user_id: bodyUserId, user_uploaded_books, user_uploaded_courses, ...allowedUpdates } = req.body;
-
-      // Ensure user_id is constant
-      if (bodyUserId && bodyUserId !== user_id) {
-        return res.status(400).json({ error: "user_id cannot be updated." });
-      }
+      const { user_role, ...allowedUpdates } = req.body;
 
       // Validate input using Joi, excluding restricted fields
-      const { error } = adminSchema.validate({
-        ...allowedUpdates,
-        user_uploaded_books: user_uploaded_books || [],
-        user_uploaded_courses: user_uploaded_courses || []
-      }, { allowUnknown: true });
+      const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
       if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
 
       const admin = await UserModel.getUserById(user_id);
@@ -234,30 +225,50 @@ module.exports = {
         updatedFields.user_password = hashedPassword;
       }
 
-      // Fetch full details for uploaded books and courses
-      if (user_uploaded_books) {
+      if (allowedUpdates.user_uploaded_books !== undefined) {
         updatedFields.user_uploaded_books = await Promise.all(
-          user_uploaded_books.map(async (bookId) => {
+          allowedUpdates.user_uploaded_books.map(async (bookId) => {
             const book = await BookModel.getBookById(bookId);
-            if (!book) throw new Error(`Book with ID ${bookId} not found`);
-            return book;
+            return book || { error: `Book with ID ${bookId} not found` };
           })
         );
       }
 
-      if (user_uploaded_courses) {
+      if (allowedUpdates.user_uploaded_courses !== undefined) {
         updatedFields.user_uploaded_courses = await Promise.all(
-          user_uploaded_courses.map(async (courseId) => {
+          allowedUpdates.user_uploaded_courses.map(async (courseId) => {
             const course = await CourseModel.getCourseById(courseId);
-            if (!course) throw new Error(`Course with ID ${courseId} not found`);
-            return course;
+            return course || { error: `Course with ID ${courseId} not found` };
           })
         );
       }
 
       await UserModel.updateUserById(user_id, updatedFields);
 
-      res.status(200).json({ message: "Admin updated successfully!", admin: { ...admin, ...updatedFields } });
+      // Enrich uploaded books and courses with full details
+      const enrichedBooks = await Promise.all(
+        (updatedFields.user_uploaded_books || admin.user_uploaded_books).map(async (bookId) => {
+          const book = await BookModel.getBookById(bookId);
+          return book || { error: `Book with ID ${bookId} not found` };
+        })
+      );
+
+      const enrichedCourses = await Promise.all(
+        (updatedFields.user_uploaded_courses || admin.user_uploaded_courses).map(async (courseId) => {
+          const course = await CourseModel.getCourseById(courseId);
+          return course || { error: `Course with ID ${courseId} not found` };
+        })
+      );
+
+      res.status(200).json({
+        message: "Admin updated successfully!",
+        admin: {
+          ...admin,
+          ...updatedFields,
+          user_uploaded_books: enrichedBooks,
+          user_uploaded_courses: enrichedCourses,
+        },
+      });
     } catch (error) {
       res.status(500).json({ error: "Error updating admin", details: error.message });
     }
