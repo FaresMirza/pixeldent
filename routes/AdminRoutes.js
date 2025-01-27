@@ -6,6 +6,7 @@ const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 const router = express.Router();
 
 router.get("/courses", verifyToken,verifyRole(["admin"]), CourseController.getAllCourses)
+router.get("/admincourses", verifyToken,verifyRole(["admin"]), CourseController.getAllCoursesForAdmin)
 router.post("/courses",verifyToken,verifyRole(["admin"]),  CourseController.registerCourse)
 router.get("/books",verifyToken,verifyRole(["admin"]),  BookController.getAllBooks); // Get all books
 router.get("/books/:book_id", verifyToken,verifyRole(["admin"]), BookController.getBookById)
