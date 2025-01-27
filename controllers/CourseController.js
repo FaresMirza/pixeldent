@@ -23,7 +23,7 @@ const fetchInstructorDetails = async (instructors) => {
   const details = await Promise.all(
     ids.map(async (id) => {
       const user = await UserModel.getUserById(id);
-      if (user && (user.admin_role === "super" || user.admin_role === "admin")) {
+      if (user && (user.user_role === "super" || user.user_role === "admin")) {
         return user;
       }
       return null;
