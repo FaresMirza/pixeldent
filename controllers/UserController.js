@@ -212,45 +212,17 @@ module.exports = {
         }
       }
   
-      const updatedFields = {};
-      if (allowedUpdates.user_name !== undefined) updatedFields.user_name = allowedUpdates.user_name;
-      if (allowedUpdates.user_email !== undefined) updatedFields.user_email = allowedUpdates.user_email;
-  
-      if (allowedUpdates.user_password !== undefined) {
-        const hashedPassword = await bcrypt.hash(allowedUpdates.user_password, 10);
-        updatedFields.user_password = hashedPassword;
-      }
-  
-      await UserModel.updateUserById(user_id, updatedFields);
-  
-      // Enrich user_books and user_courses with full details
-      const fullBooks = await Promise.all(
-        user.user_books.map(async (bookId) => {
-          const book = await BookModel.getBookById(bookId);
-          return book || { error: `Book with ID ${bookId} not found` };
-        })
-      );
-  
-      const fullCourses = await Promise.all(
-        user.user_courses.map(async (courseId) => {
-          const course = await CourseModel.getCourseById(courseId);
-          return course || { error: `Course with ID ${courseId} not found` };
-        })
-      );
+      const updatedUser = await UserModel.updateUserById(user_id, allowedUpdates);
   
       res.status(200).json({
         message: "User updated successfully!",
-        user: {
-          ...user,
-          ...updatedFields,
-          user_books: fullBooks,
-          user_courses: fullCourses,
-        },
+        user: updatedUser, // Use updated user attributes from DynamoDB
       });
     } catch (error) {
       res.status(500).json({ error: "Error updating user", details: error.message });
     }
   },
+  
   async updateUserBooksAndCourses(req, res) {
     try {
       const { user_id } = req.params;
