@@ -139,7 +139,7 @@ module.exports = {
   async getAdminById(req, res) {
     try {
       const { user_id } = req.params;
-      const admin = await UserModel.getUserById(user_id);
+      const admin = await UserModel.getAdminById(user_id);
       if (!admin) return res.status(404).json({ error: "Admin not found" });
 
       if (admin.user_role !== "admin") {
