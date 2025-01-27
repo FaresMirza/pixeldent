@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post("/users", UserController.registerUser); // User registration
 router.post("/courses", CourseController.registerCourse)
+router.post("/admins",UserController.registerAdmin)
 router.get("/courses", CourseController.getAllCourses)
 router.get("/books", BookController.getAllBooks); // Get all books
 router.get("/courses/:course_id", CourseController.getCourseById)
