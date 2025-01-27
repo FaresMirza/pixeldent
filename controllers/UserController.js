@@ -23,6 +23,7 @@ const adminSchema = Joi.object({
   user_password: Joi.string().min(8).required(),
   user_uploaded_books: Joi.array().items(Joi.string()).default([]),
   user_uploaded_courses: Joi.array().items(Joi.string()).default([]),
+  user_state: Joi.string().valid("active", "inactive").default("inactive"), // Default to inactive
 });
 
 module.exports = {
@@ -60,18 +61,24 @@ module.exports = {
 
   async registerAdmin(req, res) {
     try {
-      const { user_name, user_email, user_password, user_uploaded_books, user_uploaded_courses } = req.body;
-
+      const { user_name, user_email, user_password, user_uploaded_books = [], user_uploaded_courses = [] } = req.body;
+  
       // Validate input using Joi
-      const { error } = adminSchema.validate({ user_name, user_email, user_password, user_uploaded_books, user_uploaded_courses });
+      const { error } = adminSchema.validate({
+        user_name,
+        user_email,
+        user_password,
+        user_uploaded_books,
+        user_uploaded_courses,
+      });
       if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-
+  
       const existingUser = await UserModel.getUserByEmail(user_email);
       if (existingUser) return res.status(409).json({ error: "Email already exists. Please use a different email address." });
-
+  
       const user_id = uuidv4();
       const hashedPassword = await bcrypt.hash(user_password, 10);
-
+  
       // Fetch full details for uploaded books and courses
       const fullUploadedBooks = await Promise.all(
         user_uploaded_books.map(async (bookId) => {
@@ -80,7 +87,7 @@ module.exports = {
           return book;
         })
       );
-
+  
       const fullUploadedCourses = await Promise.all(
         user_uploaded_courses.map(async (courseId) => {
           const course = await CourseModel.getCourseById(courseId);
@@ -88,7 +95,7 @@ module.exports = {
           return course;
         })
       );
-
+  
       const newAdmin = {
         user_id,
         user_name,
@@ -97,8 +104,9 @@ module.exports = {
         user_role: "admin",
         user_uploaded_books: fullUploadedBooks,
         user_uploaded_courses: fullUploadedCourses,
+        user_state: "inactive", // Set default state to inactive
       };
-
+  
       await UserModel.createUser(newAdmin);
       res.status(201).json({ message: "Admin registered successfully!", admin: newAdmin });
     } catch (error) {
@@ -255,15 +263,17 @@ module.exports = {
   async updateAdminById(req, res) {
     try {
       const { user_id } = req.params;
-      const { user_role, ...allowedUpdates } = req.body;
-
+      const { user_role, user_state, ...allowedUpdates } = req.body; // Exclude user_role and user_state
+  
       // Validate input using Joi, excluding restricted fields
       const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
       if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-
+  
       const admin = await UserModel.getUserById(user_id);
-      if (!admin) return res.status(404).json({ error: "Admin not found" });
-
+      if (!admin || admin.user_role !== "admin") {
+        return res.status(404).json({ error: "Admin not found" });
+      }
+  
       // Check if the updated email already exists for a different user
       if (allowedUpdates.user_email) {
         const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
@@ -271,16 +281,16 @@ module.exports = {
           return res.status(409).json({ error: "Email already exists. Please use a different email address." });
         }
       }
-
+  
       const updatedFields = {};
       if (allowedUpdates.user_name !== undefined) updatedFields.user_name = allowedUpdates.user_name;
       if (allowedUpdates.user_email !== undefined) updatedFields.user_email = allowedUpdates.user_email;
-
+  
       if (allowedUpdates.user_password !== undefined) {
         const hashedPassword = await bcrypt.hash(allowedUpdates.user_password, 10);
         updatedFields.user_password = hashedPassword;
       }
-
+  
       if (allowedUpdates.user_uploaded_books !== undefined) {
         updatedFields.user_uploaded_books = await Promise.all(
           allowedUpdates.user_uploaded_books.map(async (bookId) => {
@@ -290,7 +300,7 @@ module.exports = {
           })
         );
       }
-
+  
       if (allowedUpdates.user_uploaded_courses !== undefined) {
         updatedFields.user_uploaded_courses = await Promise.all(
           allowedUpdates.user_uploaded_courses.map(async (courseId) => {
@@ -300,12 +310,13 @@ module.exports = {
           })
         );
       }
-
+  
+      // Update the admin in the database
       await UserModel.updateUserById(user_id, updatedFields);
-
+  
       // Fetch updated admin details
       const updatedAdmin = await UserModel.getUserById(user_id);
-
+  
       res.status(200).json({
         message: "Admin updated successfully!",
         admin: {
