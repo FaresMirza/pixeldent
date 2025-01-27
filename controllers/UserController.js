@@ -345,6 +345,42 @@ module.exports = {
       res.status(500).json({ error: "Error updating admin", details: error.message });
     }
   },
+  async updateAdminState(req, res) {
+    try {
+      const { user_id } = req.params; // ID of the admin to update
+      const { user_state } = req.body; // New state (active/inactive)
+  
+      // Validate `user_state` input
+      if (!["active", "inactive"].includes(user_state)) {
+        return res.status(400).json({ error: "Invalid state. Allowed values are 'active' or 'inactive'." });
+      }
+  
+      // Verify if the user making the request is `super`
+      const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
+      if (requestingUser.user_role !== "super") {
+        return res.status(403).json({ error: "Access denied. Only super users can update admin state." });
+      }
+  
+      // Fetch the admin to update
+      const admin = await UserModel.getAdminById(user_id);
+      if (!admin || admin.user_role !== "admin") {
+        return res.status(404).json({ error: "Admin not found." });
+      }
+  
+      // Update the admin's state
+      await UserModel.updateUserById(user_id, { user_state });
+  
+      // Fetch updated admin
+      const updatedAdmin = await UserModel.getAdminById(user_id);
+  
+      res.status(200).json({
+        message: "Admin state updated successfully!",
+        admin: updatedAdmin,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating admin state", details: error.message });
+    }
+  },
   
   async deleteUserById(req, res) {
     try {
