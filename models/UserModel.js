@@ -85,9 +85,11 @@ module.exports = {
       UpdateExpression: `SET ${updateExpressions.join(", ")}`,
       ExpressionAttributeNames: expressionAttributeNames,
       ExpressionAttributeValues: expressionAttributeValues,
+      ReturnValues: "ALL_NEW", // Return updated item
     };
   
-    await dynamoDB.send(new UpdateCommand(params));
+    const result = await dynamoDB.send(new UpdateCommand(params));
+    return result.Attributes; // Return updated attributes
   },
 
   async deleteUserById(user_id) {
