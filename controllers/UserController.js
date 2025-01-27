@@ -229,7 +229,8 @@ module.exports = {
         updatedFields.user_uploaded_books = await Promise.all(
           allowedUpdates.user_uploaded_books.map(async (bookId) => {
             const book = await BookModel.getBookById(bookId);
-            return book || { error: `Book with ID ${bookId} not found` };
+            if (!book) throw new Error(`Book with ID ${bookId} not found`);
+            return book;
           })
         );
       }
@@ -238,35 +239,23 @@ module.exports = {
         updatedFields.user_uploaded_courses = await Promise.all(
           allowedUpdates.user_uploaded_courses.map(async (courseId) => {
             const course = await CourseModel.getCourseById(courseId);
-            return course || { error: `Course with ID ${courseId} not found` };
+            if (!course) throw new Error(`Course with ID ${courseId} not found`);
+            return course;
           })
         );
       }
 
       await UserModel.updateUserById(user_id, updatedFields);
 
-      // Enrich uploaded books and courses with full details
-      const enrichedBooks = await Promise.all(
-        (updatedFields.user_uploaded_books || admin.user_uploaded_books).map(async (bookId) => {
-          const book = await BookModel.getBookById(bookId);
-          return book || { error: `Book with ID ${bookId} not found` };
-        })
-      );
-
-      const enrichedCourses = await Promise.all(
-        (updatedFields.user_uploaded_courses || admin.user_uploaded_courses).map(async (courseId) => {
-          const course = await CourseModel.getCourseById(courseId);
-          return course || { error: `Course with ID ${courseId} not found` };
-        })
-      );
+      // Fetch updated admin details
+      const updatedAdmin = await UserModel.getUserById(user_id);
 
       res.status(200).json({
         message: "Admin updated successfully!",
         admin: {
-          ...admin,
-          ...updatedFields,
-          user_uploaded_books: enrichedBooks,
-          user_uploaded_courses: enrichedCourses,
+          ...updatedAdmin,
+          user_uploaded_books: updatedFields.user_uploaded_books || admin.user_uploaded_books,
+          user_uploaded_courses: updatedFields.user_uploaded_courses || admin.user_uploaded_courses,
         },
       });
     } catch (error) {
