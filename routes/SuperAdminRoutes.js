@@ -13,6 +13,7 @@ router.get("/courses/:course_id",verifyToken,verifyRole(["super"]), CourseContro
 router.get("/books/:book_id",verifyToken,verifyRole(["super"]), BookController.getBookById); // Get a book by ID
 router.get("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.getUserById); // Get a user by ID
 router.get("/admins/:user_id",verifyToken,verifyRole(["super"]), UserController.getAdminById)
+router.put("/admins/:user_id", verifyToken,verifyRole(["super"]), UserController.updateAdminById)
 router.put("/approve/:user_id",verifyToken,verifyRole(["super"]), UserController.updateAdminState)
 router.put("/userCourseAndBooks/:user_id",verifyToken,verifyRole(["super"]), UserController.updateUserBooksAndCourses)
 router.put("/users/:user_id",verifyToken,verifyRole(["super"]), UserController.updateUserById)
