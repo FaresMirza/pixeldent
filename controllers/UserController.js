@@ -139,30 +139,16 @@ module.exports = {
   async getAdminById(req, res) {
     try {
       const { user_id } = req.params;
-      const admin = await UserModel.getAdminById(user_id);
-      if (!admin) return res.status(404).json({ error: "Admin not found" });
 
-      if (admin.user_role !== "admin") {
-        return res.status(403).json({ error: "User is not an admin" });
+      // Validate user_id
+      if (!user_id || typeof user_id !== "string") {
+        return res.status(400).json({ error: "Invalid user_id format" });
       }
 
-      // Fetch full details for user_uploaded_books and user_uploaded_courses
-      const fullBooks = await Promise.all(
-        (admin.user_uploaded_books || []).map(async (bookId) => {
-          const book = await BookModel.getBookById(bookId);
-          return book || { error: `Book with ID ${bookId} not found` };
-        })
-      );
-
-      const fullCourses = await Promise.all(
-        (admin.user_uploaded_courses || []).map(async (courseId) => {
-          const course = await CourseModel.getCourseById(courseId);
-          return course || { error: `Course with ID ${courseId} not found` };
-        })
-      );
-
-      admin.user_uploaded_books = fullBooks;
-      admin.user_uploaded_courses = fullCourses;
+      const admin = await UserModel.getAdminById(user_id);
+      if (!admin || admin.user_role !== "admin") {
+        return res.status(404).json({ error: "Admin not found" });
+      }
 
       const { user_password, ...sanitizedAdmin } = admin; // Exclude password
       res.status(200).json({ admin: sanitizedAdmin });
