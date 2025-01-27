@@ -22,7 +22,7 @@ const fetchInstructorDetails = async (instructors) => {
   const ids = Array.isArray(instructors) ? instructors : [instructors]; // Normalize to an array
   const details = await Promise.all(
     ids.map(async (id) => {
-      const user = await UserModel.getUserById(id);
+      const user = await UserModel.getAdminById(id);
       if (user && (user.user_role === "super" || user.user_role === "admin")) {
         return user;
       }
