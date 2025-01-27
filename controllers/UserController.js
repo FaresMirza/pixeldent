@@ -181,7 +181,7 @@ module.exports = {
       }
 
       const admin = await UserModel.getAdminById(user_id);
-      if (!admin || admin.user_role !== "admin") {
+      if (!admin || admin.user_role !== "admin" && admin.user_role !== "super") {
         return res.status(404).json({ error: "Admin not found" });
       }
 
