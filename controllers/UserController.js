@@ -139,18 +139,22 @@ module.exports = {
   async getAdminById(req, res) {
     try {
       const { user_id } = req.params;
-  
+
       // Validate the user_id format
       if (!user_id || typeof user_id !== "string") {
         return res.status(400).json({ error: "Invalid user_id format" });
       }
-  
+
       // Fetch admin by ID
       const admin = await UserModel.getUserById(user_id);
-      if (!admin || admin.user_role !== "admin") {
+      if (!admin) {
         return res.status(404).json({ error: "Admin not found" });
       }
-  
+
+      if (admin.user_role !== "admin") {
+        return res.status(403).json({ error: "User is not an admin" });
+      }
+
       // Enrich uploaded books and courses with full details
       const fullBooks = await Promise.all(
         (admin.user_uploaded_books || []).map(async (bookId) => {
@@ -158,14 +162,14 @@ module.exports = {
           return book || { error: `Book with ID ${bookId} not found` };
         })
       );
-  
+
       const fullCourses = await Promise.all(
         (admin.user_uploaded_courses || []).map(async (courseId) => {
           const course = await CourseModel.getCourseById(courseId);
           return course || { error: `Course with ID ${courseId} not found` };
         })
       );
-  
+
       res.status(200).json({
         admin: {
           ...admin,
