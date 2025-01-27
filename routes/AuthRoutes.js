@@ -3,8 +3,8 @@ const UserController = require("../controllers/UserController");
 
 const router = express.Router();
 
-router.put("/postUser",UserController.registerUser)
-router.put("/postAdmin", UserController.registerAdmin)
+router.post("/postUser",UserController.registerUser)
+router.post("/postAdmin", UserController.registerAdmin)
 
 
 
