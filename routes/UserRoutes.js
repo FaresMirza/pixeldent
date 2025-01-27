@@ -9,6 +9,7 @@ router.post("/users", UserController.registerUser); // User registration
 router.post("/courses", CourseController.registerCourse)
 router.get("/courses", CourseController.getAllCourses)
 router.get("/books", BookController.getAllBooks); // Get all books
+router.get("/courses/:course_id", CourseController.getCourseById)
 router.get("/books/:book_id", BookController.getBookById); // Get a book by ID
 router.get("/users/:user_id", UserController.getUserById); // Get a user by ID
 router.put("/users/:user_id", UserController.updateUserById); // Update a user by ID
