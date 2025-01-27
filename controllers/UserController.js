@@ -136,6 +136,42 @@ module.exports = {
       res.status(500).json({ error: "Error fetching user", details: error.message });
     }
   },
+  async getAdminById(req, res) {
+    try {
+      const { user_id } = req.params;
+
+      // Fetch admin by ID
+      const admin = await UserModel.getUserById(user_id);
+      if (!admin || admin.user_role !== "admin") {
+        return res.status(404).json({ error: "Admin not found" });
+      }
+
+      // Enrich uploaded books and courses with full details
+      const fullBooks = await Promise.all(
+        (admin.user_uploaded_books || []).map(async (bookId) => {
+          const book = await BookModel.getBookById(bookId);
+          return book || { error: `Book with ID ${bookId} not found` };
+        })
+      );
+
+      const fullCourses = await Promise.all(
+        (admin.user_uploaded_courses || []).map(async (courseId) => {
+          const course = await CourseModel.getCourseById(courseId);
+          return course || { error: `Course with ID ${courseId} not found` };
+        })
+      );
+
+      res.status(200).json({
+        admin: {
+          ...admin,
+          user_uploaded_books: fullBooks,
+          user_uploaded_courses: fullCourses,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching admin", details: error.message });
+    }
+  },
 
   async updateUserById(req, res) {
     try {
