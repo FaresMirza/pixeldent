@@ -49,19 +49,6 @@ module.exports = {
     return result.Item;
   },
 
-  async getAdminById(user_id) {
-    const params = {
-      TableName: TABLE_NAME,
-      Key: { user_id },
-    };
-
-    const result = await dynamoDB.send(new GetCommand(params));
-    if (!result.Item || result.Item.user_role !== "admin") {
-      return null; // Return null if the user is not found or not an admin
-    }
-    return result.Item;
-  },
-
   async updateUserById(user_id, updatedFields) {
     const updateExpressions = [];
     const expressionAttributeNames = {};
