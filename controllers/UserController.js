@@ -113,6 +113,50 @@ module.exports = {
       res.status(500).json({ error: "Error registering admin", details: error.message });
     }
   },
+  async loginUser(req, res) {
+    try {
+      const { user_email, user_password } = req.body;
+  
+      // Validate email and password
+      if (!user_email || !user_password) {
+        return res.status(400).json({ error: "Email and password are required." });
+      }
+  
+      // Find user by email
+      const user = await UserModel.getUserByEmail(user_email);
+      if (!user) {
+        return res.status(404).json({ error: "User not found." });
+      }
+  
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(user_password, user.user_password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: "Invalid email or password." });
+      }
+  
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          user_id: user.user_id,
+          user_role: user.user_role,
+        },
+        process.env.JWT_SECRET, // Use an environment variable for the secret
+        { expiresIn: "1h" } // Token expiration time
+      );
+  
+      // Return the response with user details and token
+      res.status(200).json({
+        message: "Login successful!",
+        user: {
+          user_id: user.user_id,
+          user_role: user.user_role,
+        },
+        token,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error logging in", details: error.message });
+    }
+  },
 
   async getUserById(req, res) {
     try {
