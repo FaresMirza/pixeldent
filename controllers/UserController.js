@@ -213,32 +213,39 @@ module.exports = {
       if (!user) return res.status(404).json({ error: "User not found" });
   
       const updatedFields = {};
-      if (user_books !== undefined) updatedFields.user_books = user_books;
-      if (user_courses !== undefined) updatedFields.user_courses = user_courses;
   
+      // Fetch full book details
+      if (user_books !== undefined) {
+        const fullBooks = await Promise.all(
+          user_books.map(async (bookId) => {
+            const book = await BookModel.getBookById(bookId);
+            if (!book) throw new Error(`Book with ID ${bookId} not found`);
+            return book;
+          })
+        );
+        updatedFields.user_books = fullBooks;
+      }
+  
+      // Fetch full course details
+      if (user_courses !== undefined) {
+        const fullCourses = await Promise.all(
+          user_courses.map(async (courseId) => {
+            const course = await CourseModel.getCourseById(courseId);
+            if (!course) throw new Error(`Course with ID ${courseId} not found`);
+            return course;
+          })
+        );
+        updatedFields.user_courses = fullCourses;
+      }
+  
+      // Update the user with full objects
       await UserModel.updateUserById(user_id, updatedFields);
-  
-      // Enrich user_books and user_courses with full details
-      const fullBooks = await Promise.all(
-        (updatedFields.user_books || user.user_books).map(async (bookId) => {
-          const book = await BookModel.getBookById(bookId);
-          return book || { error: `Book with ID ${bookId} not found` };
-        })
-      );
-  
-      const fullCourses = await Promise.all(
-        (updatedFields.user_courses || user.user_courses).map(async (courseId) => {
-          const course = await CourseModel.getCourseById(courseId);
-          return course || { error: `Course with ID ${courseId} not found` };
-        })
-      );
   
       res.status(200).json({
         message: "User's books and courses updated successfully!",
         user: {
           ...user,
-          user_books: fullBooks,
-          user_courses: fullCourses,
+          ...updatedFields,
         },
       });
     } catch (error) {
