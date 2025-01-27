@@ -18,9 +18,9 @@ const userSchema = Joi.object({
 
 // Joi schema for admin validation
 const adminSchema = Joi.object({
-  user_name: Joi.string().min(1).required(),
-  user_email: Joi.string().email().required(),
-  user_password: Joi.string().min(8).required(),
+  user_name: Joi.string().min(1).optional(),
+  user_email: Joi.string().email().optional(),
+  user_password: Joi.string().min(8).optional(),
   user_uploaded_books: Joi.array().items(Joi.string()).default([]),
   user_uploaded_courses: Joi.array().items(Joi.string()).default([]),
   user_state: Joi.string().valid("active", "inactive").default("inactive"), // Default to inactive
