@@ -131,21 +131,11 @@ module.exports = {
         return res.status(403).json({ error: "Access denied. Only admins can access this resource." });
       }
   
-      // Fetch all courses associated with the admin's user_id
-      const courses = await CourseModel.getCoursesByInstructor(user_id);
+      // Fetch all courses and filter by the admin's user_id
+      const allCourses = await CourseModel.getAllCourses();
+      const adminCourses = allCourses.filter(course => course.course_instructor === user_id);
   
-      // Enrich each course with instructor details
-      const enrichedCourses = await Promise.all(
-        courses.map(async (course) => {
-          if (course.course_instructor) {
-            const instructorDetails = await fetchInstructorDetails(course.course_instructor);
-            course.course_instructor = instructorDetails;
-          }
-          return course;
-        })
-      );
-  
-      res.status(200).json({ courses: enrichedCourses });
+      res.status(200).json({ courses: adminCourses });
     } catch (error) {
       res.status(500).json({ error: "Error fetching courses", details: error.message });
     }
