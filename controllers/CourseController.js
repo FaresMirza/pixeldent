@@ -121,6 +121,35 @@ module.exports = {
       res.status(500).json({ error: "Error fetching course", details: error.message });
     }
   },
+  async getAllCoursesForAdmin(req, res) {
+    try {
+      // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
+      const { user_id, user_role } = req.user;
+  
+      // Ensure the user making the request is an admin
+      if (user_role !== "admin") {
+        return res.status(403).json({ error: "Access denied. Only admins can access this resource." });
+      }
+  
+      // Fetch all courses associated with the admin's user_id
+      const courses = await CourseModel.getCoursesByInstructor(user_id);
+  
+      // Enrich each course with instructor details
+      const enrichedCourses = await Promise.all(
+        courses.map(async (course) => {
+          if (course.course_instructor) {
+            const instructorDetails = await fetchInstructorDetails(course.course_instructor);
+            course.course_instructor = instructorDetails;
+          }
+          return course;
+        })
+      );
+  
+      res.status(200).json({ courses: enrichedCourses });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching courses", details: error.message });
+    }
+  },
 
   // Update a course by ID
   async updateCourseById(req, res) {

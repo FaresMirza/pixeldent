@@ -25,6 +25,19 @@ module.exports = {
     const result = await dynamoDB.send(new GetCommand(params));
     return result.Item || null;
   },
+  async getCoursesByInstructor(instructorId) {
+    const params = {
+      TableName: "COURSES_TABLE",
+      IndexName: "instructor_id-index",
+      KeyConditionExpression: "course_instructor = :instructorId",
+      ExpressionAttributeValues: {
+        ":instructorId": instructorId,
+      },
+    };
+  
+    const result = await dynamoDB.send(new QueryCommand(params));
+    return result.Items || [];
+  },
 
   async updateCourseById(course_id, updatedFields) {
     const updateExpressions = [];
