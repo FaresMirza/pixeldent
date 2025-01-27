@@ -1,6 +1,6 @@
 const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
-const AdminModel = require("../models/AdminModel");
+const UserModel = require("../models/UserModel");
 const Joi = require("joi");
 
 // Joi schema for course validation
@@ -20,10 +20,18 @@ const courseSchema = Joi.object({
 // Helper function to fetch instructor details and validate their existence
 const fetchInstructorDetails = async (instructors) => {
   const ids = Array.isArray(instructors) ? instructors : [instructors]; // Normalize to an array
-  const details = await Promise.all(ids.map((id) => AdminModel.getAdminById(id))); // Fetch all instructor details
+  const details = await Promise.all(
+    ids.map(async (id) => {
+      const user = await UserModel.getUserById(id);
+      if (user && (user.admin_role === "super" || user.admin_role === "admin")) {
+        return user;
+      }
+      return null;
+    })
+  );
   if (details.includes(null)) {
     const missingIds = ids.filter((_, i) => !details[i]); // Identify missing IDs
-    throw new Error(`Admin(s) with ID(s) ${missingIds.join(", ")} not found`);
+    throw new Error(`User(s) with ID(s) ${missingIds.join(", ")} not found or not authorized as instructors`);
   }
   return details;
 };
@@ -74,42 +82,38 @@ module.exports = {
   },
 
   // Get all courses
-  // Get all courses
   async getAllCourses(req, res) {
-  try {
-    const courses = await CourseModel.getAllCourses();
+    try {
+      const courses = await CourseModel.getAllCourses();
 
-    // Enrich each course with instructor details
-    const enrichedCourses = await Promise.all(
-      courses.map(async (course) => {
-        // Fetch full instructor details if course has instructors
-        if (course.course_instructor) {
-          const instructorDetails = await fetchInstructorDetails(course.course_instructor);
-          course.course_instructor = instructorDetails; // Replace instructor IDs with full details
-        }
-        return course;
-      })
-    );
+      // Enrich each course with instructor details
+      const enrichedCourses = await Promise.all(
+        courses.map(async (course) => {
+          if (course.course_instructor) {
+            const instructorDetails = await fetchInstructorDetails(course.course_instructor);
+            course.course_instructor = instructorDetails;
+          }
+          return course;
+        })
+      );
 
-    res.status(200).json({ courses: enrichedCourses });
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching courses", details: error.message });
-  }
-},
+      res.status(200).json({ courses: enrichedCourses });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching courses", details: error.message });
+    }
+  },
 
   // Get a single course by ID
   async getCourseById(req, res) {
     try {
       const { course_id } = req.params;
 
-      // Fetch the course by ID
       const course = await CourseModel.getCourseById(course_id);
       if (!course) return res.status(404).json({ error: "Course not found" });
 
-      // Enrich the course with full instructor details
       if (course.course_instructor) {
         const instructorDetails = await fetchInstructorDetails(course.course_instructor);
-        course.course_instructor = instructorDetails; // Replace instructor IDs with full details
+        course.course_instructor = instructorDetails;
       }
 
       res.status(200).json({ course });
@@ -135,11 +139,9 @@ module.exports = {
         course_published,
       } = req.body;
 
-      // Fetch the existing course
       const existingCourse = await CourseModel.getCourseById(course_id);
       if (!existingCourse) return res.status(404).json({ error: "Course not found" });
 
-      // Build the fields to update, keeping existing values for unspecified fields
       const updatedFields = {
         course_name: course_name !== undefined ? course_name : existingCourse.course_name,
         course_description: course_description !== undefined ? course_description : existingCourse.course_description,
@@ -150,7 +152,6 @@ module.exports = {
         course_published: course_published !== undefined ? course_published : existingCourse.course_published,
       };
 
-      // Validate and fetch instructor details if `course_instructor` is being updated
       let instructorDetails = [];
       if (course_instructor !== undefined) {
         instructorDetails = await fetchInstructorDetails(course_instructor);
@@ -159,7 +160,6 @@ module.exports = {
         instructorDetails = await fetchInstructorDetails(existingCourse.course_instructor);
       }
 
-      // Update the course in the database
       const updated = await CourseModel.updateCourseById(course_id, updatedFields);
       if (!updated) return res.status(404).json({ error: "Failed to update course" });
 
@@ -179,7 +179,6 @@ module.exports = {
     try {
       const { course_id } = req.params;
 
-      // Delete the course from the database
       const deleted = await CourseModel.deleteCourseById(course_id);
       if (!deleted) return res.status(404).json({ error: "Course not found" });
 
