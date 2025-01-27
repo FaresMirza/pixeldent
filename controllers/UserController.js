@@ -140,50 +140,32 @@ module.exports = {
   async updateUserById(req, res) {
     try {
       const { user_id } = req.params;
-      const { user_name, user_email, user_books, user_courses, user_password } = req.body;
-
-      // Validate input using Joi
-      const { error } = userSchema.validate({ user_name, user_email, user_password, user_books, user_courses }, { allowUnknown: true });
+      const { user_role, user_books, user_courses, ...allowedUpdates } = req.body;
+  
+      // Validate input using Joi, excluding restricted fields
+      const { error } = userSchema.validate(allowedUpdates, { allowUnknown: true });
       if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-
+  
       const user = await UserModel.getUserById(user_id);
       if (!user) return res.status(404).json({ error: "User not found" });
-
+  
       const updatedFields = {};
-      if (user_name !== undefined) updatedFields.user_name = user_name;
-      if (user_email !== undefined) updatedFields.user_email = user_email;
-      if (user_books !== undefined) updatedFields.user_books = user_books;
-      if (user_courses !== undefined) updatedFields.user_courses = user_courses;
-
-      if (user_password !== undefined) {
-        const hashedPassword = await bcrypt.hash(user_password, 10);
+      if (allowedUpdates.user_name !== undefined) updatedFields.user_name = allowedUpdates.user_name;
+      if (allowedUpdates.user_email !== undefined) updatedFields.user_email = allowedUpdates.user_email;
+  
+      if (allowedUpdates.user_password !== undefined) {
+        const hashedPassword = await bcrypt.hash(allowedUpdates.user_password, 10);
         updatedFields.user_password = hashedPassword;
       }
-
+  
       await UserModel.updateUserById(user_id, updatedFields);
-
-      // Enrich user_books and user_courses with full details
-      const fullBooks = await Promise.all(
-        (updatedFields.user_books || user.user_books).map(async (bookId) => {
-          const book = await BookModel.getBookById(bookId);
-          return book || { error: `Book with ID ${bookId} not found` };
-        })
-      );
-
-      const fullCourses = await Promise.all(
-        (updatedFields.user_courses || user.user_courses).map(async (courseId) => {
-          const course = await CourseModel.getCourseById(courseId);
-          return course || { error: `Course with ID ${courseId} not found` };
-        })
-      );
-
+  
+      // Return the updated user without modifying user_books or user_courses
       res.status(200).json({
         message: "User updated successfully!",
         user: {
           ...user,
           ...updatedFields,
-          user_books: fullBooks,
-          user_courses: fullCourses,
         },
       });
     } catch (error) {
