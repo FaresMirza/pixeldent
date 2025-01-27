@@ -16,6 +16,7 @@ router.get("/users/:user_id", UserController.getUserById); // Get a user by ID
 router.get("/admins/:user_id",UserController.getAdminById)
 router.put("/users/:user_id", UserController.updateUserById); // Update a user by ID
 router.put("/admins/:user_id",UserController.updateAdminById)
+router.put("/users/:user_id",UserController.updateUserBooksAndCourses)
 
 
 

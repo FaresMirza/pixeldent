@@ -203,6 +203,48 @@ module.exports = {
       res.status(500).json({ error: "Error updating user", details: error.message });
     }
   },
+  async updateUserBooksAndCourses(req, res) {
+    try {
+      const { user_id } = req.params;
+      const { user_books, user_courses } = req.body;
+  
+      // Fetch the user
+      const user = await UserModel.getUserById(user_id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+  
+      const updatedFields = {};
+      if (user_books !== undefined) updatedFields.user_books = user_books;
+      if (user_courses !== undefined) updatedFields.user_courses = user_courses;
+  
+      await UserModel.updateUserById(user_id, updatedFields);
+  
+      // Enrich user_books and user_courses with full details
+      const fullBooks = await Promise.all(
+        (updatedFields.user_books || user.user_books).map(async (bookId) => {
+          const book = await BookModel.getBookById(bookId);
+          return book || { error: `Book with ID ${bookId} not found` };
+        })
+      );
+  
+      const fullCourses = await Promise.all(
+        (updatedFields.user_courses || user.user_courses).map(async (courseId) => {
+          const course = await CourseModel.getCourseById(courseId);
+          return course || { error: `Course with ID ${courseId} not found` };
+        })
+      );
+  
+      res.status(200).json({
+        message: "User's books and courses updated successfully!",
+        user: {
+          ...user,
+          user_books: fullBooks,
+          user_courses: fullCourses,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error updating user's books and courses", details: error.message });
+    }
+  },
   async updateAdminById(req, res) {
     try {
       const { user_id } = req.params;
