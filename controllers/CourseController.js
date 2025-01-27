@@ -19,20 +19,48 @@ const courseSchema = Joi.object({
 
 // Helper function to fetch instructor details and validate their existence
 const fetchInstructorDetails = async (instructors) => {
-  const ids = Array.isArray(instructors) ? instructors : [instructors]; // Normalize to an array
+  // Normalize instructors to an array if not already
+  const ids = Array.isArray(instructors) ? instructors : [instructors];
+
+  // Fetch details for each instructor
   const details = await Promise.all(
     ids.map(async (id) => {
       const user = await UserModel.getAdminById(id);
+
+      // Ensure the user is either an admin or super user
       if (user && (user.user_role === "super" || user.user_role === "admin")) {
-        return user;
+        // Enrich user with their uploaded books and courses
+        const enrichedBooks = await Promise.all(
+          (user.user_uploaded_books || []).map(async (bookId) => {
+            const book = await BookModel.getBookById(bookId);
+            return book || { error: `Book with ID ${bookId} not found` };
+          })
+        );
+
+        const enrichedCourses = await Promise.all(
+          (user.user_uploaded_courses || []).map(async (courseId) => {
+            const course = await CourseModel.getCourseById(courseId);
+            return course || { error: `Course with ID ${courseId} not found` };
+          })
+        );
+
+        return {
+          ...user,
+          user_uploaded_books: enrichedBooks,
+          user_uploaded_courses: enrichedCourses,
+        };
       }
+
       return null;
     })
   );
+
+  // Check for missing or unauthorized instructors
   if (details.includes(null)) {
     const missingIds = ids.filter((_, i) => !details[i]); // Identify missing IDs
     throw new Error(`User(s) with ID(s) ${missingIds.join(", ")} not found or not authorized as instructors`);
   }
+
   return details;
 };
 
