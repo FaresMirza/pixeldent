@@ -199,7 +199,7 @@ module.exports = {
   async updateUserById(req, res) {
     try {
       const { user_id } = req.params;
-      const { user_role, user_books, user_courses, ...allowedUpdates } = req.body;
+      const { user_role, user_books, user_courses, user_password, ...allowedUpdates } = req.body;
   
       // Validate input using Joi, excluding restricted fields
       const { error } = userSchema.validate(allowedUpdates, { allowUnknown: true });
@@ -214,6 +214,12 @@ module.exports = {
         if (existingUser && existingUser.user_id !== user_id) {
           return res.status(409).json({ error: "Email already exists. Please use a different email address." });
         }
+      }
+  
+      // Hash the password if it's being updated
+      if (user_password) {
+        const hashedPassword = await bcrypt.hash(user_password, 10);
+        allowedUpdates.user_password = hashedPassword;
       }
   
       const updatedUser = await UserModel.updateUserById(user_id, allowedUpdates);
