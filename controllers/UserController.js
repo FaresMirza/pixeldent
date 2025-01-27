@@ -373,7 +373,7 @@ async updateUserById(req, res) {
   
       // Verify if the user making the request is `super`
       const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
-      if (requestingUser.user_role !== "super") {
+      if (!requestingUser || requestingUser.user_role !== "super") {
         return res.status(403).json({ error: "Access denied. Only super users can update admin state." });
       }
   
@@ -401,11 +401,20 @@ async updateUserById(req, res) {
   async deleteUserById(req, res) {
     try {
       const { user_id } = req.params;
-
+  
+      // Verify if the user making the request is a superadmin
+      const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
+      if (!requestingUser || requestingUser.user_role !== "super") {
+        return res.status(403).json({ error: "Access denied. Only super users can delete users." });
+      }
+  
+      // Fetch the user to be deleted
       const user = await UserModel.getUserById(user_id);
-      if (!user) return res.status(404).json({ error: "User not found" });
-
+      if (!user) return res.status(404).json({ error: "User not found." });
+  
+      // Delete the user
       await UserModel.deleteUserById(user_id);
+  
       res.status(200).json({ message: "User deleted successfully!" });
     } catch (error) {
       res.status(500).json({ error: "Error deleting user", details: error.message });
@@ -414,9 +423,17 @@ async updateUserById(req, res) {
 
   async getAllAdmins(req, res) {
     try {
+      // Verify if the user making the request is a superadmin
+      const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
+      if (!requestingUser || requestingUser.user_role !== "super") {
+        return res.status(403).json({ error: "Access denied. Only super users can view all admins." });
+      }
+  
+      // Fetch all users and filter for admins
       const users = await UserModel.getAllUsers();
       const admins = users.filter(user => user.user_role === "admin");
-
+  
+      // Enrich admin details
       const enrichedAdmins = await Promise.all(
         admins.map(async (admin) => {
           const fullBooks = await Promise.all(
@@ -425,14 +442,14 @@ async updateUserById(req, res) {
               return book || { error: `Book with ID ${bookId} not found` };
             })
           );
-
+  
           const fullCourses = await Promise.all(
             admin.user_uploaded_courses.map(async (courseId) => {
               const course = await CourseModel.getCourseById(courseId);
               return course || { error: `Course with ID ${courseId} not found` };
             })
           );
-
+  
           return {
             ...admin,
             user_uploaded_books: fullBooks,
@@ -440,7 +457,7 @@ async updateUserById(req, res) {
           };
         })
       );
-
+  
       res.status(200).json({ admins: enrichedAdmins });
     } catch (error) {
       res.status(500).json({ error: "Error fetching all admins", details: error.message });
@@ -449,7 +466,16 @@ async updateUserById(req, res) {
 
   async getAllUsers(req, res) {
     try {
+      // Verify if the user making the request is a superadmin
+      const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
+      if (!requestingUser || requestingUser.user_role !== "super") {
+        return res.status(403).json({ error: "Access denied. Only super users can view all users." });
+      }
+  
+      // Fetch all users
       const users = await UserModel.getAllUsers();
+  
+      // Enrich user details with full books and courses
       const enrichedUsers = await Promise.all(
         users.map(async (user) => {
           const fullBooks = await Promise.all(
@@ -458,14 +484,14 @@ async updateUserById(req, res) {
               return book || { error: `Book with ID ${bookId} not found` };
             })
           );
-
+  
           const fullCourses = await Promise.all(
             user.user_courses.map(async (courseId) => {
               const course = await CourseModel.getCourseById(courseId);
               return course || { error: `Course with ID ${courseId} not found` };
             })
           );
-
+  
           return {
             ...user,
             user_books: fullBooks,
@@ -473,8 +499,10 @@ async updateUserById(req, res) {
           };
         })
       );
-
-      const sanitizedUsers = enrichedUsers.map(({ user_password, ...rest }) => rest); // Exclude passwords
+  
+      // Exclude passwords from the response
+      const sanitizedUsers = enrichedUsers.map(({ user_password, ...rest }) => rest);
+  
       res.status(200).json({ users: sanitizedUsers });
     } catch (error) {
       res.status(500).json({ error: "Error fetching all users", details: error.message });
