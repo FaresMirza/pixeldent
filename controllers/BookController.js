@@ -6,7 +6,7 @@ const Joi = require("joi");
 const bookSchema = Joi.object({
   book_name: Joi.string().min(1).required(),
   book_description: Joi.string().optional(),
-  book_price: Joi.number().integer().positive().optional(),
+  book_price: Joi.number().positive().optional(),
   book_cover: Joi.string().optional(),
   book_link: Joi.string().uri().optional(),
 });
