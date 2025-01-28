@@ -65,7 +65,28 @@ module.exports = {
       };
   
       await UserModel.createUser(newUser);
-      res.status(201).json({ message: "User registered successfully!", user: newUser });
+
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          user_id: newUser.user_id,
+          user_role: newUser.user_role,
+        },
+        process.env.JWT_SECRET, // Secret key from environment variables
+        { expiresIn: "1h" } // Token expiration time
+      );
+  
+      res.status(201).json({
+        message: "User registered successfully!",
+        user: {
+          user_id: newUser.user_id,
+          user_name: newUser.user_name,
+          user_email: newUser.user_email,
+          user_role: newUser.user_role,
+          user_state: newUser.user_state,
+        },
+        token, // Include the generated token in the response
+      });
     } catch (error) {
       res.status(500).json({ error: "Error registering user", details: error.message });
     }
