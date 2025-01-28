@@ -91,7 +91,7 @@ module.exports = {
       res.status(500).json({ error: "Error registering user", details: error.message });
     }
   },
-
+  //
   async registerAdmin(req, res) {
     try {
       const { user_name, user_email, user_password } = req.body;
