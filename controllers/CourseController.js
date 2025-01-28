@@ -126,16 +126,45 @@ module.exports = {
       // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
       const { user_id, user_role } = req.user;
   
-      // Ensure the user making the request is an admin
-      if (user_role !== "admin") {
-        return res.status(403).json({ error: "Access denied. Only admins can access this resource." });
+      // Ensure the user making the request is an admin or super
+      if (user_role !== "admin" && user_role !== "super") {
+        return res.status(403).json({ error: "Access denied. Only admins or super users can access this resource." });
       }
   
-      // Fetch all courses and filter by the admin's user_id
+      // Fetch all courses and filter by the admin's or super's user_id
       const allCourses = await CourseModel.getAllCourses();
-      const adminCourses = allCourses.filter(course => course.course_instructor === user_id);
+      const filteredCourses = user_role === "super" 
+        ? allCourses 
+        : allCourses.filter(course => course.course_instructor === user_id);
   
-      res.status(200).json({ courses: adminCourses });
+      res.status(200).json({ courses: filteredCourses });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching courses", details: error.message });
+    }
+  },
+  
+  async getAllCoursesForUser(req, res) {
+    try {
+      // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
+      const { user_id, user_role } = req.user;
+  
+      // Ensure the user making the request is a normal user
+      if (user_role !== "normal") {
+        return res.status(403).json({ error: "Access denied. Only normal users can access this resource." });
+      }
+  
+      // Fetch all courses and filter by the user's enrolled courses
+      const allCourses = await CourseModel.getAllCourses();
+      const user = await UserModel.getUserById(user_id);
+  
+      if (!user || !user.user_courses) {
+        return res.status(404).json({ error: "User or user courses not found." });
+      }
+  
+      // Filter courses based on the user's enrolled courses
+      const userCourses = allCourses.filter(course => user.user_courses.includes(course.course_id));
+  
+      res.status(200).json({ courses: userCourses });
     } catch (error) {
       res.status(500).json({ error: "Error fetching courses", details: error.message });
     }
