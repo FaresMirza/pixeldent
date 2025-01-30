@@ -201,79 +201,68 @@ async getAllCoursesForAdmin(req, res) {
   },
 
   // Update a course by ID
-  async updateCourseById(req, res) {
+  async updateCourseById(course_id, updatedFields) {
     try {
-        const { course_id } = req.params;
-        const { user_id, user_role } = req.user; // Extract user info from token
-
-        // Validate input, allowing unknown fields for partial updates
-        const { error } = courseSchema.validate(req.body, { allowUnknown: true });
-        if (error) {
-            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-        }
-
-        // Fetch existing course
+        // ✅ Fetch existing course details
         const existingCourse = await CourseModel.getCourseById(course_id);
         if (!existingCourse) {
-            return res.status(404).json({ error: "Course not found" });
+            return { error: "Course not found" };
         }
 
-        // Allow only admins to update their own courses, while super users can update any course
-        if (user_role !== "super" && !existingCourse.course_instructor.includes(user_id)) {
-            return res.status(403).json({ error: "Access denied. You can only update your own courses." });
+        // ✅ Filter out undefined fields (only update provided values)
+        const filteredUpdates = Object.fromEntries(
+            Object.entries(updatedFields).filter(([_, value]) => value !== undefined)
+        );
+
+        if (Object.keys(filteredUpdates).length === 0) {
+            return { error: "No valid fields provided for update" };
         }
 
-        // Extract updatable fields
-        const {
-            course_name,
-            course_description,
-            course_price,
-            course_instructor,
-            course_image,
-            course_videos,
-            course_lessons,
-            course_files,
-            course_published,
-        } = req.body;
+        const updateExpressions = [];
+        const expressionAttributeNames = {};
+        const expressionAttributeValues = {};
 
-        // Fetch updated instructor details if needed
-        let instructorDetails = existingCourse.course_instructor;
-        if (course_instructor !== undefined) {
-            instructorDetails = await fetchInstructorDetails(course_instructor);
-        }
-
-        // Construct updated fields object (update only if provided)
-        const updatedFields = {
-            course_name: course_name ?? existingCourse.course_name,
-            course_description: course_description ?? existingCourse.course_description,
-            course_price: course_price ?? existingCourse.course_price,
-            course_instructor: instructorDetails.map(inst => inst.user_id), // Store only user IDs
-            course_image: course_image ?? existingCourse.course_image,
-            course_videos: course_videos ?? existingCourse.course_videos,
-            course_lessons: course_lessons ?? existingCourse.course_lessons,
-            course_files: course_files ?? existingCourse.course_files,
-            course_published: course_published ?? existingCourse.course_published,
-        };
-
-        // Update course in the database
-        const updated = await CourseModel.updateCourseById(course_id, updatedFields);
-        if (!updated) {
-            return res.status(500).json({ error: "Failed to update course" });
-        }
-
-        // Construct response object
-        const updatedCourse = {
-            ...updatedFields,
-            course_instructor: instructorDetails, // Return detailed instructor info
-        };
-
-        res.status(200).json({
-            message: "Course updated successfully!",
-            course: updatedCourse,
+        Object.entries(filteredUpdates).forEach(([key, value]) => {
+            const attributeKey = `#${key}`;
+            const valueKey = `:${key}`;
+            updateExpressions.push(`${attributeKey} = ${valueKey}`);
+            expressionAttributeNames[attributeKey] = key;
+            expressionAttributeValues[valueKey] = value;
         });
 
+        const params = {
+            TableName: TABLE_NAME,
+            Key: { course_id },
+            UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+            ExpressionAttributeNames: expressionAttributeNames,
+            ExpressionAttributeValues: expressionAttributeValues,
+            ReturnValues: "ALL_NEW",
+        };
+
+        const result = await dynamoDB.send(new UpdateCommand(params));
+        if (!result.Attributes) return null;
+
+        const updatedCourse = result.Attributes;
+
+        // ✅ Fetch the course instructor's details (admin or super)
+        const instructorId = updatedCourse.course_instructor?.user_id;
+        if (instructorId) {
+            const instructor = await UserModel.getUserById(instructorId);
+
+            if (instructor && ["admin", "super"].includes(instructor.user_role)) {
+                // ✅ Update `user_uploaded_courses` for the instructor
+                const updatedUploadedCourses = instructor.user_uploaded_courses.map(course =>
+                    course.course_id === course_id ? updatedCourse : course
+                );
+
+                await UserModel.updateUserById(instructorId, { user_uploaded_courses: updatedUploadedCourses });
+            }
+        }
+
+        return updatedCourse;
     } catch (error) {
-        res.status(500).json({ error: "Error updating course", details: error.message });
+        console.error("Error updating course:", error);
+        throw new Error("Error updating course");
     }
 },
 
