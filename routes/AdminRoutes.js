@@ -13,6 +13,8 @@ router.get("/books/:book_id", verifyToken,verifyRole(["admin"]), BookController.
 router.get("/courses/:course_id",verifyToken,verifyRole(["admin"]),  CourseController.getCourseById)
 router.get("/admins/:user_id",verifyToken,verifyRole(["admin"]),  UserController.getAdminById)
 router.put("/admins/:user_id",verifyToken,verifyRole(["admin"]),  UserController.updateAdminById)
+router.put("/courses/:course_id",verifyToken,verifyRole(["admin"]),  CourseController.updateCourseById)
+
 
 
 module.exports = router;
