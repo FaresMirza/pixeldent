@@ -187,85 +187,55 @@ async getAllCoursesForAdmin(req, res) {
   }
 },
   // Update a course by ID
-    // Update a course by ID
-    async updateCourseById(req, res) {
-      try {
-        const { course_id } = req.params;
-        const { user_id, user_role } = req.user;
-  
-        // Only allow "admin" or "super" users to update a course
-        if (!["admin", "super"].includes(user_role)) {
-          return res.status(403).json({ error: "Access denied. Only admins and super users can update courses." });
-        }
-  
-        // Validate request body using Joi schema
-        const { error } = courseSchema.validate(req.body);
-        if (error) {
-          return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-        }
-  
-        let {
-          course_name,
-          course_description,
-          course_price,
-          course_image,
-          course_videos,
-          course_lessons,
-          course_files,
-          course_published,
-        } = req.body;
-  
-        // Check if course exists
-        const existingCourse = await CourseModel.getCourseById(course_id);
-        if (!existingCourse) {
-          return res.status(404).json({ error: "Course not found" });
-        }
-  
-        // Ensure the user updating the course is the original instructor (if not a super admin)
-        if (user_role !== "super" && existingCourse.course_instructor.user_id !== user_id) {
-          return res.status(403).json({ error: "Access denied. You can only update your own courses." });
-        }
-  
-        // Construct updated course object
-        const updatedCourse = {
-          course_name,
-          course_description,
-          course_price,
-          course_image,
-          course_videos,
-          course_lessons,
-          course_files,
-          course_published,
-        };
-  
-        // Update the course in the database
-        await CourseModel.updateCourseById(course_id, updatedCourse);
-  
-        // Fetch instructor details
-        const instructorDetails = await UserModel.getUserById(existingCourse.course_instructor.user_id);
-        if (!instructorDetails) {
-          return res.status(404).json({ error: "Instructor not found" });
-        }
-  
-        // Update the instructor's uploaded courses
-        const updatedCourses = instructorDetails.user_uploaded_courses || [];
-  
-        // Find and update the course in user_uploaded_courses
-        const courseIndex = updatedCourses.findIndex(course => course.course_id === course_id);
-        if (courseIndex !== -1) {
-          updatedCourses[courseIndex] = { course_id, ...updatedCourse };
-        }
-  
-        // Save the updated user data
-        await UserModel.updateUserById(instructorDetails.user_id, { user_uploaded_courses: updatedCourses });
-  
-        return res.status(200).json({ message: "Course updated successfully!", course: { course_id, ...updatedCourse } });
-  
-      } catch (error) {
-        return res.status(500).json({ error: "Error updating course", details: error.message });
+   // Update a course by ID
+   async updateCourseById(req, res) {
+    try {
+      const { course_id } = req.params;
+      const { user_id, user_role } = req.user;
+
+      if (!["admin", "super"].includes(user_role)) {
+        return res.status(403).json({ error: "Access denied." });
       }
-    },
-  
+
+      const { error, value } = courseSchema.validate(req.body);
+      if (error) {
+        return res.status(400).json({ error: error.details.map(detail => detail.message) });
+      }
+
+      const existingCourse = await CourseModel.getCourseById(course_id);
+      if (!existingCourse) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+
+      if (user_role !== "super" && existingCourse.course_instructor.user_id !== user_id) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      await CourseModel.updateCourseById(course_id, value);
+
+      // Fetch instructor details
+      const instructorDetails = await UserModel.getUserById(existingCourse.course_instructor.user_id);
+      if (!instructorDetails) {
+        return res.status(404).json({ error: "Instructor not found" });
+      }
+
+      // Update the instructor's uploaded courses
+      const updatedCourses = instructorDetails.user_uploaded_courses || [];
+      const courseIndex = updatedCourses.findIndex(course => course.course_id === course_id);
+      if (courseIndex !== -1) {
+        updatedCourses[courseIndex] = { course_id, ...value };
+      }
+
+      // Save the updated user data
+      await UserModel.updateUserById(instructorDetails.user_id, { user_uploaded_courses: updatedCourses });
+
+      return res.status(200).json({ message: "Course updated successfully!", course: { course_id, ...value } });
+
+    } catch (error) {
+      console.error("Error updating course:", error);
+      return res.status(500).json({ error: "Error updating course", details: error.message });
+    }
+  },
   async getAllCoursesForUser(req, res) {
     try {
       // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
