@@ -151,44 +151,6 @@ module.exports = {
 
 async getAllCoursesForAdmin(req, res) {
   try {
-      const { user_id, user_role } = req.user;
-
-      // Allow only admins or super users
-      if (!["admin", "super"].includes(user_role)) {
-          return res.status(403).json({ error: "Access denied. Only admins or super users can access this resource." });
-      }
-
-      // Fetch all courses
-      const allCourses = await CourseModel.getAllCourses();
-
-      // If the user is an admin, filter courses to only include those they instruct
-      const filteredCourses = user_role === "admin"
-          ? allCourses.filter(course => 
-              Array.isArray(course.course_instructor) 
-                  ? course.course_instructor.includes(user_id) 
-                  : course.course_instructor === user_id
-          )
-          : allCourses;
-
-      // Fetch full instructor details for each course
-      const enrichedCourses = await Promise.all(
-          filteredCourses.map(async (course) => {
-              if (course.course_instructor) {
-                  course.course_instructor = await fetchInstructorDetails(course.course_instructor);
-              }
-              return course;
-          })
-      );
-
-      res.status(200).json({ courses: enrichedCourses });
-
-  } catch (error) {
-      res.status(500).json({ error: "Error fetching courses", details: error.message });
-  }
-},
-  
-async getAllCoursesForAdmin(req, res) {
-  try {
       // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
       const { user_id, user_role } = req.user;
 
@@ -199,22 +161,44 @@ async getAllCoursesForAdmin(req, res) {
 
       // Fetch all courses
       const allCourses = await CourseModel.getAllCourses();
-      const admin = await UserModel.getUserById(user_id);
 
-      if (!admin || !admin.user_uploaded_courses) {
-          return res.status(404).json({ error: "Admin or uploaded courses not found." });
-      }
-
-      // If the user is a super admin, return all courses; otherwise, filter by uploaded courses
+      // If the user is an admin, filter courses by course_instructor.user_id
       const filteredCourses = user_role === "super"
           ? allCourses
-          : allCourses.filter(course => admin.user_uploaded_courses.some(uploadedCourse => uploadedCourse.course_id === course.course_id));
+          : allCourses.filter(course => course.course_instructor.user_id === user_id);
 
       res.status(200).json({ courses: filteredCourses });
   } catch (error) {
       res.status(500).json({ error: "Error fetching courses", details: error.message });
   }
 },
+  
+  async getAllCoursesForUser(req, res) {
+    try {
+      // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
+      const { user_id, user_role } = req.user;
+  
+      // Ensure the user making the request is a normal user
+      if (user_role !== "normal") {
+        return res.status(403).json({ error: "Access denied. Only normal users can access this resource." });
+      }
+  
+      // Fetch all courses and filter by the user's enrolled courses
+      const allCourses = await CourseModel.getAllCourses();
+      const user = await UserModel.getUserById(user_id);
+  
+      if (!user || !user.user_courses) {
+        return res.status(404).json({ error: "User or user courses not found." });
+      }
+  
+      // Filter courses based on the user's enrolled courses
+      const userCourses = allCourses.filter(course => user.user_courses.includes(course.course_id));
+  
+      res.status(200).json({ courses: userCourses });
+    } catch (error) {
+      res.status(500).json({ error: "Error fetching courses", details: error.message });
+    }
+  },
 
   // Update a course by ID
   async updateCourseById(req, res) {
