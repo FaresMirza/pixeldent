@@ -446,15 +446,22 @@ async updateAdminState(req, res) {
       await UserModel.updateUserById(user_id, { user_state });
 
       // Fetch the updated admin details
-      const updatedAdmin = await UserModel.getAdminById(user_id);
+      const updatedAdmin = await UserModel.getUserById(user_id); // Make sure we get the latest details
 
-      // Update all courses where this admin is an instructor
+      // Fetch all courses where this admin is an instructor
       const adminCourses = await CourseModel.getCoursesByInstructor(user_id);
+
       if (adminCourses.length > 0) {
           await Promise.all(
               adminCourses.map(async (course) => {
                   await CourseModel.updateCourseById(course.course_id, {
-                      course_instructor: updatedAdmin, // Ensure instructor details are updated in courses
+                      course_instructor: {
+                          user_id: updatedAdmin.user_id,
+                          user_name: updatedAdmin.user_name,
+                          user_email: updatedAdmin.user_email,
+                          user_role: updatedAdmin.user_role,
+                          user_state: updatedAdmin.user_state, // Reflect the new state
+                      }
                   });
               })
           );
@@ -466,10 +473,10 @@ async updateAdminState(req, res) {
       });
 
   } catch (error) {
+      console.error("Error updating admin state:", error);
       res.status(500).json({ error: "Error updating admin state", details: error.message });
   }
 },
-  
   async deleteUserById(req, res) {
     try {
       const { user_id } = req.params;
