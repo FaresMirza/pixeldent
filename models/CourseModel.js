@@ -59,7 +59,7 @@ async updateCourseById(course_id, updatedFields) {
           expressionAttributeValues[valueKey] = value;
       });
 
-      if (updateExpressions.length === 0) return null;
+      if (updateExpressions.length === 0) return null; // No updates
 
       const params = {
           TableName: TABLE_NAME,
@@ -76,24 +76,35 @@ async updateCourseById(course_id, updatedFields) {
       const updatedCourse = result.Attributes;
 
       // ✅ Fetch the course instructor's details (admin or super)
-      const instructorId = updatedCourse.course_instructor.user_id;
-      const instructor = await UserModel.getUserById(instructorId);
+      const instructorId = updatedCourse.course_instructor?.user_id;
+      if (!instructorId) {
+          throw new Error("Instructor ID missing from course");
+      }
 
+      const instructor = await UserModel.getUserById(instructorId);
       if (!instructor || !["admin", "super"].includes(instructor.user_role)) {
           throw new Error("Instructor not found or unauthorized");
       }
 
-      // ✅ Update `user_uploaded_courses` for the instructor
-      const updatedUploadedCourses = instructor.user_uploaded_courses.map(course =>
-          course.course_id === course_id ? updatedCourse : course
-      );
+      // ✅ Ensure `user_uploaded_courses` exists
+      let updatedUploadedCourses = instructor.user_uploaded_courses || [];
 
+      // ✅ Check if course exists in `user_uploaded_courses` & update it
+      const courseIndex = updatedUploadedCourses.findIndex(course => course.course_id === course_id);
+      if (courseIndex !== -1) {
+          updatedUploadedCourses[courseIndex] = updatedCourse; // Update existing course
+      } else {
+          updatedUploadedCourses.push(updatedCourse); // If missing, add it
+      }
+
+      // ✅ Update `user_uploaded_courses` for the instructor
       await UserModel.updateUserById(instructorId, { user_uploaded_courses: updatedUploadedCourses });
 
       return updatedCourse;
+
   } catch (error) {
       console.error("Error updating course:", error);
-      throw new Error("Error updating course");
+      throw new Error("Error updating course: " + error.message);
   }
 },
 
