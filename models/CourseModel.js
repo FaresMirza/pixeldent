@@ -25,24 +25,77 @@ module.exports = {
     const result = await dynamoDB.send(new GetCommand(params));
     return result.Item || null;
   },
-
-  async getCoursesByInstructor(admin_id) {
+  async getCoursesByInstructor(instructorId) {
     try {
-      const params = { TableName: TABLE_NAME };
-      const result = await dynamoDB.send(new ScanCommand(params));
-  
-      // ✅ Filter by admin_id directly (since DynamoDB does not support nested queries)
-      const filteredCourses = result.Items.filter(course =>
-        course.course_instructor && course.course_instructor.user_id === admin_id
-      );
-  
-      return filteredCourses;
+        const params = {
+            TableName: TABLE_NAME,
+            IndexName: "admin_id-index", // ✅ Make sure this matches your DynamoDB index name
+            KeyConditionExpression: "course_instructor = :instructorId",
+            ExpressionAttributeValues: {
+                ":instructorId": instructorId,
+            },
+        };
+
+        const result = await dynamoDB.send(new QueryCommand(params));
+
+        return result.Items || [];
     } catch (error) {
-      throw new Error("Error fetching courses by instructor: " + error.message);
+        console.error("Error fetching courses by instructor:", error);
+        throw new Error("Error fetching courses by instructor");
     }
-  },
+},
 
+async updateCourseById(course_id, updatedFields) {
+  try {
+      const updateExpressions = [];
+      const expressionAttributeNames = {};
+      const expressionAttributeValues = {};
 
+      Object.entries(updatedFields).forEach(([key, value]) => {
+          const attributeKey = `#${key}`;
+          const valueKey = `:${key}`;
+          updateExpressions.push(`${attributeKey} = ${valueKey}`);
+          expressionAttributeNames[attributeKey] = key;
+          expressionAttributeValues[valueKey] = value;
+      });
+
+      if (updateExpressions.length === 0) return null;
+
+      const params = {
+          TableName: TABLE_NAME,
+          Key: { course_id },
+          UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+          ExpressionAttributeNames: expressionAttributeNames,
+          ExpressionAttributeValues: expressionAttributeValues,
+          ReturnValues: "ALL_NEW",
+      };
+
+      const result = await dynamoDB.send(new UpdateCommand(params));
+      if (!result.Attributes) return null;
+
+      const updatedCourse = result.Attributes;
+
+      // ✅ Fetch the course instructor's details (admin or super)
+      const instructorId = updatedCourse.course_instructor.user_id;
+      const instructor = await UserModel.getUserById(instructorId);
+
+      if (!instructor || !["admin", "super"].includes(instructor.user_role)) {
+          throw new Error("Instructor not found or unauthorized");
+      }
+
+      // ✅ Update `user_uploaded_courses` for the instructor
+      const updatedUploadedCourses = instructor.user_uploaded_courses.map(course =>
+          course.course_id === course_id ? updatedCourse : course
+      );
+
+      await UserModel.updateUserById(instructorId, { user_uploaded_courses: updatedUploadedCourses });
+
+      return updatedCourse;
+  } catch (error) {
+      console.error("Error updating course:", error);
+      throw new Error("Error updating course");
+  }
+},
 
   async deleteCourseById(course_id) {
     const params = { TableName: TABLE_NAME, Key: { course_id } };
