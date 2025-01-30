@@ -211,9 +211,10 @@ async getAllCoursesForAdmin(req, res) {
         // ✅ Ensure `user_uploaded_courses` exists (initialize if empty)
         let updatedCourses = instructor.user_uploaded_courses || [];
 
-        // ✅ Remove the old course entry (if exists) & add the updated full course details
+        // ✅ Remove the old course entry (if exists) & add the updated full course details (excluding course_instructor)
         updatedCourses = updatedCourses.filter(course => course.course_id !== course_id);
-        updatedCourses.push({ course_id, ...updatedCourse }); // ✅ Store full course details
+        const { course_instructor, ...courseWithoutInstructor } = updatedCourse; // ✅ Remove `course_instructor`
+        updatedCourses.push(courseWithoutInstructor); // ✅ Store full course details without `course_instructor`
 
         // ✅ Save the updated instructor data
         await UserModel.updateUserById(instructor.user_id, { user_uploaded_courses: updatedCourses });
@@ -228,7 +229,6 @@ async getAllCoursesForAdmin(req, res) {
         return res.status(500).json({ error: "Error updating course", details: error.message });
     }
 },
-
   async getAllCoursesForUser(req, res) {
     try {
       // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
