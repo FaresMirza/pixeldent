@@ -422,7 +422,7 @@ async updateUserById(req, res) {
 },
 async updateAdminState(req, res) {
   try {
-      const { user_id } = req.params; // ID of the admin to update
+      const { user_id } = req.params; // Admin ID to update
       const { user_state } = req.body; // New state (active/inactive)
 
       // Validate `user_state` input
@@ -431,13 +431,13 @@ async updateAdminState(req, res) {
       }
 
       // Verify if the user making the request is `super`
-      const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
+      const requestingUser = req.user; // Extract from JWT middleware
       if (!requestingUser || requestingUser.user_role !== "super") {
           return res.status(403).json({ error: "Access denied. Only super users can update admin state." });
       }
 
-      // Fetch the admin to update
-      const admin = await UserModel.getAdminById(user_id);
+      // Fetch the admin from the database
+      const admin = await UserModel.getUserById(user_id);
       if (!admin || admin.user_role !== "admin") {
           return res.status(404).json({ error: "Admin not found." });
       }
@@ -445,22 +445,24 @@ async updateAdminState(req, res) {
       // Update the admin's state in the database
       await UserModel.updateUserById(user_id, { user_state });
 
-      // Fetch the updated admin details
-      const updatedAdmin = await UserModel.getUserById(user_id); // Make sure we get the latest details
+      // Fetch the **updated** admin details
+      const updatedAdmin = await UserModel.getUserById(user_id); // Ensure the latest details
 
-      // Fetch all courses where this admin is an instructor
-      const adminCourses = await CourseModel.getCoursesByInstructor(user_id);
+      // **Update courses where this admin is the instructor**
+      const allCourses = await CourseModel.getAllCourses(); // Fetch all courses
+      const instructorCourses = allCourses.filter(course => course.course_instructor.user_id === user_id);
 
-      if (adminCourses.length > 0) {
+      // Update only the courses where the admin is the instructor
+      if (instructorCourses.length > 0) {
           await Promise.all(
-              adminCourses.map(async (course) => {
+              instructorCourses.map(async (course) => {
                   await CourseModel.updateCourseById(course.course_id, {
                       course_instructor: {
                           user_id: updatedAdmin.user_id,
                           user_name: updatedAdmin.user_name,
                           user_email: updatedAdmin.user_email,
                           user_role: updatedAdmin.user_role,
-                          user_state: updatedAdmin.user_state, // Reflect the new state
+                          user_state: updatedAdmin.user_state, // Reflect new state
                       }
                   });
               })
