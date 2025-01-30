@@ -50,36 +50,49 @@ module.exports = {
   // Register a new course
   async registerCourse(req, res) {
     try {
+        // Extract user_id and user_role from the token
+        const { user_id, user_role } = req.user;
+
+        // Only allow "admin" or "super" users to register a course
+        if (!["admin", "super"].includes(user_role)) {
+            return res.status(403).json({ error: "Access denied. Only admins and super users can add courses." });
+        }
+
         // Validate request body using Joi schema
         const { error } = courseSchema.validate(req.body);
         if (error) {
             return res.status(400).json({ error: error.details.map((detail) => detail.message) });
         }
 
-        const {
+        let {
             course_name,
             course_description,
             course_price,
-            course_instructor,
             course_image,
-            course_videos, // Now handled separately
+            course_videos,
             course_lessons,
             course_files,
             course_published,
         } = req.body;
 
-        // Validate and fetch instructor details
-        const instructorDetails = await fetchInstructorDetails(course_instructor);
+        // Generate a new course ID
+        const course_id = shortid.generate();
+
+        // Fetch full instructor details
+        const instructorDetails = await UserModel.getUserById(user_id);
+        if (!instructorDetails) {
+            return res.status(404).json({ error: "Instructor not found" });
+        }
 
         // Construct the new course object
         const newCourse = {
-            course_id: shortid.generate(),
+            course_id,
             course_name,
             course_description,
             course_price,
-            course_instructor: instructorDetails.map(instructor => instructor.user_id), // Store only instructor IDs
+            course_instructor: instructorDetails, // Store full instructor details
             course_image,
-            course_videos, // Included now
+            course_videos,
             course_lessons,
             course_files,
             course_published,
@@ -88,11 +101,15 @@ module.exports = {
         // Save the new course to the database
         await CourseModel.createCourse(newCourse);
 
-        // Respond with the created course, including instructor details
+        // Add the course to the user's `user_uploaded_courses` array
+        await UserModel.addCourseToUser(user_id, newCourse);
+
+        // Respond with the created course
         res.status(201).json({
             message: "Course added successfully!",
-            course: { ...newCourse, course_instructor: instructorDetails }, // Return full instructor details
+            course: newCourse,
         });
+
     } catch (error) {
         res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
     }
@@ -101,64 +118,49 @@ module.exports = {
   // Get all courses
   async getAllCourses(req, res) {
     try {
-      const courses = await CourseModel.getAllCourses();
-
-      // Enrich each course with instructor details
-      const enrichedCourses = await Promise.all(
-        courses.map(async (course) => {
-          if (course.course_instructor) {
-            const instructorDetails = await fetchInstructorDetails(course.course_instructor);
-            course.course_instructor = instructorDetails;
-          }
-          return course;
-        })
-      );
-
-      res.status(200).json({ courses: enrichedCourses });
+        const courses = await CourseModel.getAllCourses();
+        res.status(200).json({ courses });
     } catch (error) {
-      res.status(500).json({ error: "Error fetching courses", details: error.message });
+        res.status(500).json({ error: "Error fetching courses", details: error.message });
     }
-  },
+},
 
   // Get a single course by ID
   async getCourseById(req, res) {
     try {
-      const { course_id } = req.params;
+        const { course_id } = req.params;
 
-      const course = await CourseModel.getCourseById(course_id);
-      if (!course) return res.status(404).json({ error: "Course not found" });
+        const course = await CourseModel.getCourseById(course_id);
+        if (!course) return res.status(404).json({ error: "Course not found" });
 
-      if (course.course_instructor) {
-        const instructorDetails = await fetchInstructorDetails(course.course_instructor);
-        course.course_instructor = instructorDetails;
-      }
-
-      res.status(200).json({ course });
+        res.status(200).json({ course });
     } catch (error) {
-      res.status(500).json({ error: "Error fetching course", details: error.message });
+        res.status(500).json({ error: "Error fetching course", details: error.message });
     }
-  },
-  async getAllCoursesForAdmin(req, res) {
-    try {
-      // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
+},
+
+async getAllCoursesForAdmin(req, res) {
+  try {
       const { user_id, user_role } = req.user;
-  
-      // Ensure the user making the request is an admin or super
-      if (user_role !== "admin" && user_role !== "super") {
-        return res.status(403).json({ error: "Access denied. Only admins or super users can access this resource." });
+
+      // Allow only admins or super users
+      if (!["admin", "super"].includes(user_role)) {
+          return res.status(403).json({ error: "Access denied. Only admins or super users can access this resource." });
       }
-  
-      // Fetch all courses and filter by the admin's or super's user_id
+
+      // Fetch all courses
       const allCourses = await CourseModel.getAllCourses();
-      const filteredCourses = user_role === "super" 
-        ? allCourses 
-        : allCourses.filter(course => course.course_instructor === user_id);
-  
+
+      // If the user is an admin, filter courses to only include those they instruct
+      const filteredCourses = user_role === "admin"
+          ? allCourses.filter(course => course.course_instructor.includes(user_id))
+          : allCourses;
+
       res.status(200).json({ courses: filteredCourses });
-    } catch (error) {
+  } catch (error) {
       res.status(500).json({ error: "Error fetching courses", details: error.message });
-    }
-  },
+  }
+},
   
   async getAllCoursesForUser(req, res) {
     try {
@@ -191,8 +193,9 @@ module.exports = {
   async updateCourseById(req, res) {
     try {
         const { course_id } = req.params;
+        const { user_id, user_role } = req.user; // Extract user info from token
 
-        // Validate input, allowing unknown fields to prevent Joi rejection of partial updates
+        // Validate input, allowing unknown fields for partial updates
         const { error } = courseSchema.validate(req.body, { allowUnknown: true });
         if (error) {
             return res.status(400).json({ error: error.details.map((detail) => detail.message) });
@@ -204,6 +207,11 @@ module.exports = {
             return res.status(404).json({ error: "Course not found" });
         }
 
+        // Allow only admins to update their own courses, while super users can update any course
+        if (user_role !== "super" && !existingCourse.course_instructor.includes(user_id)) {
+            return res.status(403).json({ error: "Access denied. You can only update your own courses." });
+        }
+
         // Extract updatable fields
         const {
             course_name,
@@ -211,26 +219,24 @@ module.exports = {
             course_price,
             course_instructor,
             course_image,
-            course_videos, // Now handled separately
+            course_videos,
             course_lessons,
             course_files,
             course_published,
         } = req.body;
 
         // Fetch updated instructor details if needed
-        let instructorDetails = [];
+        let instructorDetails = existingCourse.course_instructor;
         if (course_instructor !== undefined) {
             instructorDetails = await fetchInstructorDetails(course_instructor);
-        } else {
-            instructorDetails = await fetchInstructorDetails(existingCourse.course_instructor);
         }
 
-        // Construct updated fields object (only update if value exists)
+        // Construct updated fields object (update only if provided)
         const updatedFields = {
             course_name: course_name ?? existingCourse.course_name,
             course_description: course_description ?? existingCourse.course_description,
             course_price: course_price ?? existingCourse.course_price,
-            course_instructor: course_instructor ?? existingCourse.course_instructor,
+            course_instructor: instructorDetails.map(inst => inst.user_id), // Store only user IDs
             course_image: course_image ?? existingCourse.course_image,
             course_videos: course_videos ?? existingCourse.course_videos,
             course_lessons: course_lessons ?? existingCourse.course_lessons,
@@ -238,7 +244,7 @@ module.exports = {
             course_published: course_published ?? existingCourse.course_published,
         };
 
-        // Update course in DB
+        // Update course in the database
         const updated = await CourseModel.updateCourseById(course_id, updatedFields);
         if (!updated) {
             return res.status(500).json({ error: "Failed to update course" });

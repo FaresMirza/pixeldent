@@ -21,8 +21,6 @@ const adminSchema = Joi.object({
   user_name: Joi.string().min(1).optional(),
   user_email: Joi.string().email().optional(),
   user_password: Joi.string().min(8).optional(),
-  user_uploaded_books: Joi.array().items(Joi.string()).default([]),
-  user_uploaded_courses: Joi.array().items(Joi.string()).default([]),
   user_state: Joi.string().valid("active", "inactive").default("inactive"), // Default to inactive
 });
 
@@ -117,6 +115,7 @@ module.exports = {
         user_password: hashedPassword,
         user_role: "admin",
         user_state: "inactive", // Set default state to inactive
+        user_uploaded_courses: [], // Always set to an empty array, cannot be set by the user
       };
   
       await UserModel.createUser(newAdmin);
@@ -124,7 +123,7 @@ module.exports = {
     } catch (error) {
       res.status(500).json({ error: "Error registering admin", details: error.message });
     }
-  },
+},
   async loginUser(req, res) {
     try {
       const { user_email, user_password } = req.body;
@@ -332,92 +331,118 @@ async updateUserById(req, res) {
   },
   async updateAdminById(req, res) {
     try {
-      const { user_id } = req.params;
-      const { user_role, user_state, ...allowedUpdates } = req.body; // Exclude user_role and user_state
-  
-      // Ensure the requester is authorized
-      const requestingUser = req.user; // Assuming `req.user` contains the logged-in user's info from the JWT token
-      if (!requestingUser || (requestingUser.user_role !== "super" && requestingUser.user_id !== user_id)) {
-        return res.status(403).json({ error: "Access denied. Only the admin or a superadmin can update this information." });
-      }
-  
-      // Validate input using Joi, excluding restricted fields
-      const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
-      if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-  
-      const admin = await UserModel.getUserById(user_id);
-      if (!admin || (admin.user_role !== "admin" && admin.user_role !== "super")) {
-        return res.status(404).json({ error: "Admin not found" });
-      }
-  
-      // Check if the updated email already exists for a different user
-      if (allowedUpdates.user_email) {
-        const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
-        if (existingUser && existingUser.user_id !== user_id) {
-          return res.status(409).json({ error: "Email already exists. Please use a different email address." });
+        const { user_id } = req.params;
+        const { user_role, user_state, ...allowedUpdates } = req.body; // Exclude restricted fields
+
+        // Ensure the requester is authorized
+        const requestingUser = req.user; // Extract logged-in user from JWT token
+        if (!requestingUser || (requestingUser.user_role !== "super" && requestingUser.user_id !== user_id)) {
+            return res.status(403).json({ error: "Access denied. Only the admin or a superadmin can update this information." });
         }
-      }
-  
-      // Prepare updated fields
-      const updatedFields = {};
-      if (allowedUpdates.user_name !== undefined) updatedFields.user_name = allowedUpdates.user_name;
-      if (allowedUpdates.user_email !== undefined) updatedFields.user_email = allowedUpdates.user_email;
-  
-      if (allowedUpdates.user_password !== undefined) {
-        const hashedPassword = await bcrypt.hash(allowedUpdates.user_password, 10);
-        updatedFields.user_password = hashedPassword;
-      }
-  
-      // Update the admin in the database
-      await UserModel.updateUserById(user_id, updatedFields);
-  
-      // Fetch updated admin details
-      const updatedAdmin = await UserModel.getUserById(user_id);
-  
-      res.status(200).json({
-        message: "Admin updated successfully!",
-        admin: updatedAdmin,
-      });
+
+        // Validate input using Joi
+        const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
+        if (error) {
+            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+        }
+
+        // Check if admin exists
+        const admin = await UserModel.getUserById(user_id);
+        if (!admin || (admin.user_role !== "admin" && admin.user_role !== "super")) {
+            return res.status(404).json({ error: "Admin not found" });
+        }
+
+        // Check for duplicate email
+        if (allowedUpdates.user_email) {
+            const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
+            if (existingUser && existingUser.user_id !== user_id) {
+                return res.status(409).json({ error: "Email already exists. Please use a different email address." });
+            }
+        }
+
+        // Prepare updated fields
+        const updatedFields = { ...allowedUpdates };
+        if (allowedUpdates.user_password !== undefined) {
+            const hashedPassword = await bcrypt.hash(allowedUpdates.user_password, 10);
+            updatedFields.user_password = hashedPassword;
+        }
+
+        // Update the admin in the database
+        await UserModel.updateUserById(user_id, updatedFields);
+
+        // Fetch updated admin details
+        const updatedAdmin = await UserModel.getUserById(user_id);
+
+        // Fetch all courses where the admin is an instructor
+        const adminCourses = await CourseModel.getCoursesByInstructor(user_id);
+
+        // Update the `course_instructor` details in each course
+        await Promise.all(
+            adminCourses.map(async (course) => {
+                const updatedInstructorDetails = await fetchInstructorDetails(course.course_instructor);
+                await CourseModel.updateCourseById(course.course_id, {
+                    course_instructor: updatedInstructorDetails,
+                });
+            })
+        );
+
+        res.status(200).json({
+            message: "Admin updated successfully!",
+            admin: updatedAdmin,
+        });
     } catch (error) {
-      res.status(500).json({ error: "Error updating admin", details: error.message });
+        res.status(500).json({ error: "Error updating admin", details: error.message });
     }
-  },
-  async updateAdminState(req, res) {
-    try {
+},
+async updateAdminState(req, res) {
+  try {
       const { user_id } = req.params; // ID of the admin to update
       const { user_state } = req.body; // New state (active/inactive)
-  
+
       // Validate `user_state` input
       if (!["active", "inactive"].includes(user_state)) {
-        return res.status(400).json({ error: "Invalid state. Allowed values are 'active' or 'inactive'." });
+          return res.status(400).json({ error: "Invalid state. Allowed values are 'active' or 'inactive'." });
       }
-  
+
       // Verify if the user making the request is `super`
       const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
       if (!requestingUser || requestingUser.user_role !== "super") {
-        return res.status(403).json({ error: "Access denied. Only super users can update admin state." });
+          return res.status(403).json({ error: "Access denied. Only super users can update admin state." });
       }
-  
+
       // Fetch the admin to update
       const admin = await UserModel.getAdminById(user_id);
       if (!admin || admin.user_role !== "admin") {
-        return res.status(404).json({ error: "Admin not found." });
+          return res.status(404).json({ error: "Admin not found." });
       }
-  
-      // Update the admin's state
+
+      // Update the admin's state in the database
       await UserModel.updateUserById(user_id, { user_state });
-  
-      // Fetch updated admin
+
+      // Fetch the updated admin details
       const updatedAdmin = await UserModel.getAdminById(user_id);
-  
+
+      // Update all courses where this admin is an instructor
+      const adminCourses = await CourseModel.getCoursesByInstructor(user_id);
+      if (adminCourses.length > 0) {
+          await Promise.all(
+              adminCourses.map(async (course) => {
+                  await CourseModel.updateCourseById(course.course_id, {
+                      course_instructor: updatedAdmin, // Ensure instructor details are updated in courses
+                  });
+              })
+          );
+      }
+
       res.status(200).json({
-        message: "Admin state updated successfully!",
-        admin: updatedAdmin,
+          message: "Admin state updated successfully!",
+          admin: updatedAdmin,
       });
-    } catch (error) {
+
+  } catch (error) {
       res.status(500).json({ error: "Error updating admin state", details: error.message });
-    }
-  },
+  }
+},
   
   async deleteUserById(req, res) {
     try {

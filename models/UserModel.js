@@ -49,6 +49,20 @@ module.exports = {
     return result.Item;
   },
 
+  async addCourseToUser(user_id, course) {
+    try {
+        const user = await this.getUserById(user_id);
+        if (!user) throw new Error("User not found");
+
+        // Ensure `user_uploaded_courses` exists as an array
+        const updatedCourses = [...user.user_uploaded_courses, course];
+
+        await this.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
+    } catch (error) {
+        throw new Error("Error adding course to user: " + error.message);
+    }
+},
+
   async getUserById(user_id) {
     const params = {
       TableName: TABLE_NAME,
@@ -59,6 +73,24 @@ module.exports = {
      
     return result.Item;
   },
+async getCoursesByInstructor(admin_id) {
+    try {
+        const params = {
+            TableName: TABLE_NAME,
+            IndexName: "admin_id-index", // Use the correct index name
+            KeyConditionExpression: "course_instructor = :admin_id",
+            ExpressionAttributeValues: {
+                ":admin_id": admin_id,
+            },
+        };
+
+        const result = await dynamoDB.send(new QueryCommand(params));
+        return result.Items || [];
+    } catch (error) {
+        console.error("Error fetching courses by instructor:", error);
+        throw new Error("Error fetching courses by instructor");
+    }
+},
 
   async updateUserById(user_id, updatedFields) {
     const updateExpressions = [];
