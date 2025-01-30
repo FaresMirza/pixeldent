@@ -27,24 +27,6 @@ const courseSchema = Joi.object({
   course_published: Joi.boolean(),
 });
 
-// Helper function to fetch instructor details and validate their existence
-const fetchInstructorDetails = async (instructors) => {
-  const ids = Array.isArray(instructors) ? instructors : [instructors]; // Normalize to an array
-  const details = await Promise.all(
-    ids.map(async (id) => {
-      const user = await UserModel.getAdminById(id);
-      if (user && (user.user_role === "super" || user.user_role === "admin")) {
-        return user;
-      }
-      return null;
-    })
-  );
-  if (details.includes(null)) {
-    const missingIds = ids.filter((_, i) => !details[i]); // Identify missing IDs
-    throw new Error(`User(s) with ID(s) ${missingIds.join(", ")} not found or not authorized as instructors`);
-  }
-  return details;
-};
 
 module.exports = {
   // Register a new course
@@ -186,7 +168,6 @@ async getAllCoursesForAdmin(req, res) {
       res.status(500).json({ error: "Error fetching courses", details: error.message });
   }
 },
-  // Update a course by ID
    // Update a course by ID
    async updateCourseById(req, res) {
     try {
@@ -236,6 +217,7 @@ async getAllCoursesForAdmin(req, res) {
       return res.status(500).json({ error: "Error updating course", details: error.message });
     }
   },
+
   async getAllCoursesForUser(req, res) {
     try {
       // Extract `user_id` and `user_role` from the token (added by the verifyToken middleware)
@@ -263,7 +245,6 @@ async getAllCoursesForAdmin(req, res) {
     }
   },
 
-  // Update a course by ID
   
 
   // Delete a course by ID
