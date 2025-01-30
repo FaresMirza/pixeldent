@@ -352,65 +352,63 @@ async updateUserById(req, res) {
         const { user_id } = req.params;
         const { user_role, user_state, ...allowedUpdates } = req.body;
 
-        // Ensure the requester is authorized
+        // Ensure only the admin themselves or a super admin can update the details
         const requestingUser = req.user;
         if (!requestingUser || (requestingUser.user_role !== "super" && requestingUser.user_id !== user_id)) {
             return res.status(403).json({ error: "Access denied." });
         }
 
-        // Validate input using Joi
+        // Validate the input using Joi
         const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
         if (error) {
             return res.status(400).json({ error: error.details.map((detail) => detail.message) });
         }
 
-        // Check if admin exists
+        // Check if the admin exists
         const admin = await UserModel.getUserById(user_id);
         if (!admin || (admin.user_role !== "admin" && admin.user_role !== "super")) {
             return res.status(404).json({ error: "Admin not found" });
         }
 
-        // Check for duplicate email
+        // Check if the updated email already exists for another user
         if (allowedUpdates.user_email) {
             const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
             if (existingUser && existingUser.user_id !== user_id) {
-                return res.status(409).json({ error: "Email already exists. Please use a different email address." });
+                return res.status(409).json({ error: "Email already exists. Use a different email address." });
             }
         }
 
-        // Prepare updated fields
-        const updatedFields = { ...allowedUpdates };
+        // Hash the password if it's being updated
         if (allowedUpdates.user_password) {
-            updatedFields.user_password = await bcrypt.hash(allowedUpdates.user_password, 10);
+            allowedUpdates.user_password = await bcrypt.hash(allowedUpdates.user_password, 10);
         }
 
         // Update the admin in the database
-        await UserModel.updateUserById(user_id, updatedFields);
+        await UserModel.updateUserById(user_id, allowedUpdates);
 
         // Fetch updated admin details
         const updatedAdmin = await UserModel.getUserById(user_id);
 
-        // Fetch all courses where the admin is an instructor
-        const adminCourses = await CourseModel.getCoursesByInstructor(user_id);
+        // Fetch all courses associated with the admin (without using indexes)
+        const allCourses = await CourseModel.getAllCourses();
+        const adminCourses = allCourses.filter(course => course.course_instructor.user_id === user_id);
 
-        if (adminCourses.length > 0) {
-            // Prepare updated instructor data (without sensitive fields)
-            const updatedInstructorDetails = {
-                user_id: updatedAdmin.user_id,
-                user_name: updatedAdmin.user_name,
-                user_email: updatedAdmin.user_email,
-                user_role: updatedAdmin.user_role,
-            };
+        // Prepare updated instructor details (without sensitive fields)
+        const updatedInstructorDetails = {
+            user_id: updatedAdmin.user_id,
+            user_name: updatedAdmin.user_name,
+            user_email: updatedAdmin.user_email,
+            user_role: updatedAdmin.user_role,
+        };
 
-            // Update the `course_instructor` details in each course
-            await Promise.all(
-                adminCourses.map(async (course) => {
-                    await CourseModel.updateCourseById(course.course_id, {
-                        course_instructor: updatedInstructorDetails,
-                    });
-                })
-            );
-        }
+        // Update each course's `course_instructor` field
+        await Promise.all(
+            adminCourses.map(async (course) => {
+                await CourseModel.updateCourseById(course.course_id, {
+                    course_instructor: updatedInstructorDetails,
+                });
+            })
+        );
 
         return res.status(200).json({
             message: "Admin updated successfully!",
