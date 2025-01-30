@@ -444,12 +444,6 @@ async updateUserById(req, res) {
 
   async getAllAdmins(req, res) {
     try {
-      // Verify if the user making the request is a superadmin
-      const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
-      if (!requestingUser || requestingUser.user_role !== "super") {
-        return res.status(403).json({ error: "Access denied. Only super users can view all admins." });
-      }
-  
       // Fetch all users and filter for admins
       const users = await UserModel.getAllUsers();
       const admins = users.filter(user => user.user_role === "admin");
