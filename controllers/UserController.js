@@ -24,6 +24,24 @@ const adminSchema = Joi.object({
   user_state: Joi.string().valid("active", "inactive").default("inactive"), // Default to inactive
 });
 
+const fetchInstructorDetails = async (instructors) => {
+  const ids = Array.isArray(instructors) ? instructors : [instructors]; // Normalize to an array
+  const details = await Promise.all(
+    ids.map(async (id) => {
+      const user = await UserModel.getAdminById(id);
+      if (user && (user.user_role === "super" || user.user_role === "admin")) {
+        return user;
+      }
+      return null;
+    })
+  );
+  if (details.includes(null)) {
+    const missingIds = ids.filter((_, i) => !details[i]); // Identify missing IDs
+    throw new Error(`User(s) with ID(s) ${missingIds.join(", ")} not found or not authorized as instructors`);
+  }
+  return details;
+};
+
 module.exports = {
   async registerUser(req, res) {
     try {
