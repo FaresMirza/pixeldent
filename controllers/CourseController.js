@@ -211,9 +211,9 @@ async getAllCoursesForAdmin(req, res) {
         // ✅ Ensure `user_uploaded_courses` exists (initialize if empty)
         let updatedCourses = instructor.user_uploaded_courses || [];
 
-        // ✅ Remove the old course entry (if exists) & add the updated one
+        // ✅ Remove the old course entry (if exists) & add the updated full course details
         updatedCourses = updatedCourses.filter(course => course.course_id !== course_id);
-        updatedCourses.push({ course_id, ...updatedFields }); // Add updated course
+        updatedCourses.push({ course_id, ...updatedCourse }); // ✅ Store full course details
 
         // ✅ Save the updated instructor data
         await UserModel.updateUserById(instructor.user_id, { user_uploaded_courses: updatedCourses });
