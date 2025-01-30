@@ -6,6 +6,8 @@ const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 const router = express.Router();
 
 router.post("/courses",verifyToken,verifyRole(["super"]),  CourseController.registerCourse)
+router.get("/admins", verifyToken,verifyRole(["super"]), UserController.getAllAdmins)
+router.get("/users", verifyToken,verifyRole(["super"]), UserController.getAllAdmins)
 router.post("/books",verifyToken,verifyRole(["super"]), BookController.registerBook)
 router.get("/courses",verifyToken,verifyRole(["super"]), CourseController.getAllCourses)
 router.get("/books",verifyToken,verifyRole(["super"]), BookController.getAllBooks); // Get all books

@@ -449,7 +449,7 @@ async updateUserById(req, res) {
         const admins = users.filter(user => user.user_role === "admin" || user.user_role === "super");
 
         // Sanitize data to avoid exposing sensitive information
-        const sanitizedAdmins = admins.map(({ user_password,user_state,user_id,user_role,user_email, ...admin }) => admin);
+        const sanitizedAdmins = admins.map(({ user_password, ...admin }) => admin);
 
         res.status(200).json({ admins: sanitizedAdmins });
     } catch (error) {

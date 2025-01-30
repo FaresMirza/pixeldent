@@ -10,10 +10,20 @@ const courseSchema = Joi.object({
   course_price: Joi.number().positive().required(),
   course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())).required(),
   course_image: Joi.string().optional(),
-  course_content: Joi.object({
-    course_videos: Joi.array().items(Joi.string()).required(),
-    course_files: Joi.array().items(Joi.string()).required(),
-  }).required(),
+  course_videos: Joi.array().items(Joi.string()).required(), // New addition
+  course_lessons: Joi.array().items(
+    Joi.object({
+      subject: Joi.string().required(),
+      description: Joi.string().required(),
+      vid_url: Joi.string().uri().required(),
+    })
+  ).required(),
+  course_files: Joi.array().items(
+    Joi.object({
+      file_name: Joi.string().required(),
+      file_url: Joi.string().uri().required(),
+    })
+  ).required(),
   course_published: Joi.boolean().required(),
 });
 
@@ -40,46 +50,53 @@ module.exports = {
   // Register a new course
   async registerCourse(req, res) {
     try {
-      const { error } = courseSchema.validate(req.body);
-      if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+        // Validate request body using Joi schema
+        const { error } = courseSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+        }
 
-      const {
-        course_name,
-        course_description,
-        course_price,
-        course_instructor,
-        course_image,
-        course_content,
-        course_published,
-      } = req.body;
+        const {
+            course_name,
+            course_description,
+            course_price,
+            course_instructor,
+            course_image,
+            course_videos, // Now handled separately
+            course_lessons,
+            course_files,
+            course_published,
+        } = req.body;
 
-      // Validate and fetch instructor details
-      const instructorDetails = await fetchInstructorDetails(course_instructor);
+        // Validate and fetch instructor details
+        const instructorDetails = await fetchInstructorDetails(course_instructor);
 
-      // Create the new course object
-      const newCourse = {
-        course_id: shortid.generate(),
-        course_name,
-        course_description,
-        course_price,
-        course_instructor,
-        course_image,
-        course_content,
-        course_published,
-      };
+        // Construct the new course object
+        const newCourse = {
+            course_id: shortid.generate(),
+            course_name,
+            course_description,
+            course_price,
+            course_instructor: instructorDetails.map(instructor => instructor.user_id), // Store only instructor IDs
+            course_image,
+            course_videos, // Included now
+            course_lessons,
+            course_files,
+            course_published,
+        };
 
-      // Save the new course to the database
-      await CourseModel.createCourse(newCourse);
+        // Save the new course to the database
+        await CourseModel.createCourse(newCourse);
 
-      // Respond with the newly created course, including instructor details
-      res.status(201).json({
-        message: "Course added successfully!",
-        course: { ...newCourse, course_instructor: instructorDetails },
-      });
+        // Respond with the created course, including instructor details
+        res.status(201).json({
+            message: "Course added successfully!",
+            course: { ...newCourse, course_instructor: instructorDetails }, // Return full instructor details
+        });
     } catch (error) {
-      res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
+        res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
     }
-  },
+},
 
   // Get all courses
   async getAllCourses(req, res) {
@@ -173,54 +190,75 @@ module.exports = {
   // Update a course by ID
   async updateCourseById(req, res) {
     try {
-      const { course_id } = req.params;
-      const { error } = courseSchema.validate(req.body, { allowUnknown: true });
-      if (error) return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+        const { course_id } = req.params;
 
-      const {
-        course_name,
-        course_description,
-        course_price,
-        course_instructor,
-        course_image,
-        course_content,
-        course_published,
-      } = req.body;
+        // Validate input, allowing unknown fields to prevent Joi rejection of partial updates
+        const { error } = courseSchema.validate(req.body, { allowUnknown: true });
+        if (error) {
+            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+        }
 
-      const existingCourse = await CourseModel.getCourseById(course_id);
-      if (!existingCourse) return res.status(404).json({ error: "Course not found" });
+        // Fetch existing course
+        const existingCourse = await CourseModel.getCourseById(course_id);
+        if (!existingCourse) {
+            return res.status(404).json({ error: "Course not found" });
+        }
 
-      const updatedFields = {
-        course_name: course_name !== undefined ? course_name : existingCourse.course_name,
-        course_description: course_description !== undefined ? course_description : existingCourse.course_description,
-        course_price: course_price !== undefined ? course_price : existingCourse.course_price,
-        course_instructor: course_instructor !== undefined ? course_instructor : existingCourse.course_instructor,
-        course_image: course_image !== undefined ? course_image : existingCourse.course_image,
-        course_content: course_content !== undefined ? course_content : existingCourse.course_content,
-        course_published: course_published !== undefined ? course_published : existingCourse.course_published,
-      };
+        // Extract updatable fields
+        const {
+            course_name,
+            course_description,
+            course_price,
+            course_instructor,
+            course_image,
+            course_videos, // Now handled separately
+            course_lessons,
+            course_files,
+            course_published,
+        } = req.body;
 
-      let instructorDetails = [];
-      if (course_instructor !== undefined) {
-        instructorDetails = await fetchInstructorDetails(course_instructor);
-        updatedFields.course_instructor = instructorDetails;
-      } else {
-        instructorDetails = await fetchInstructorDetails(existingCourse.course_instructor);
-      }
+        // Fetch updated instructor details if needed
+        let instructorDetails = [];
+        if (course_instructor !== undefined) {
+            instructorDetails = await fetchInstructorDetails(course_instructor);
+        } else {
+            instructorDetails = await fetchInstructorDetails(existingCourse.course_instructor);
+        }
 
-      const updated = await CourseModel.updateCourseById(course_id, updatedFields);
-      if (!updated) return res.status(404).json({ error: "Failed to update course" });
+        // Construct updated fields object (only update if value exists)
+        const updatedFields = {
+            course_name: course_name ?? existingCourse.course_name,
+            course_description: course_description ?? existingCourse.course_description,
+            course_price: course_price ?? existingCourse.course_price,
+            course_instructor: course_instructor ?? existingCourse.course_instructor,
+            course_image: course_image ?? existingCourse.course_image,
+            course_videos: course_videos ?? existingCourse.course_videos,
+            course_lessons: course_lessons ?? existingCourse.course_lessons,
+            course_files: course_files ?? existingCourse.course_files,
+            course_published: course_published ?? existingCourse.course_published,
+        };
 
-      const updatedCourse = {
-        ...updatedFields,
-        course_instructor: instructorDetails,
-      };
+        // Update course in DB
+        const updated = await CourseModel.updateCourseById(course_id, updatedFields);
+        if (!updated) {
+            return res.status(500).json({ error: "Failed to update course" });
+        }
 
-      res.status(200).json({ message: "Course updated successfully!", course: updatedCourse });
+        // Construct response object
+        const updatedCourse = {
+            ...updatedFields,
+            course_instructor: instructorDetails, // Return detailed instructor info
+        };
+
+        res.status(200).json({
+            message: "Course updated successfully!",
+            course: updatedCourse,
+        });
+
     } catch (error) {
-      res.status(500).json({ error: "Error updating course", details: error.message });
+        res.status(500).json({ error: "Error updating course", details: error.message });
     }
-  },
+},
 
   // Delete a course by ID
   async deleteCourseById(req, res) {
