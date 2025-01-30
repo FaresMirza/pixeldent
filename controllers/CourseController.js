@@ -78,7 +78,7 @@ module.exports = {
         // ✅ Generate a new course ID
         const course_id = shortid.generate();
 
-        // ✅ Fetch full instructor details using user_id from JWT token
+        // ✅ Fetch instructor details
         const instructorDetails = await UserModel.getUserById(user_id);
         if (!instructorDetails) {
             return res.status(404).json({ error: "Instructor not found" });
@@ -106,17 +106,31 @@ module.exports = {
         // ✅ Save the new course to the database
         await CourseModel.createCourse(newCourse);
 
-        // ✅ Ensure instructor's `user_uploaded_courses` is an array and update it
-        const updatedUploadedCourses = Array.isArray(instructorDetails.user_uploaded_courses)
-            ? [...instructorDetails.user_uploaded_courses, newCourse]
-            : [newCourse];
+        // ✅ Ensure instructor's `user_uploaded_courses` array is updated with the new course
+        const updatedUploadedCourses = [
+            ...(instructorDetails.user_uploaded_courses || []).filter(course => course.course_id !== course_id),
+            {
+                course_id,
+                course_name,
+                course_description,
+                course_price,
+                course_image,
+                course_videos,
+                course_lessons,
+                course_files,
+                course_published,
+            }
+        ];
 
         await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedUploadedCourses });
 
-        // ✅ Respond with the created course (including instructor details)
+        // ✅ Fetch updated instructor details to reflect new changes
+        const updatedInstructor = await UserModel.getUserById(user_id);
+
+        // ✅ Respond with the created course (including correct instructor details)
         res.status(201).json({
             message: "Course added successfully!",
-            course: newCourse,
+            course: { ...newCourse, course_instructor: updatedInstructor }, // Full instructor details
         });
 
     } catch (error) {
