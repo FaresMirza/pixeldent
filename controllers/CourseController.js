@@ -75,10 +75,10 @@ module.exports = {
             course_published,
         } = req.body;
 
-        // Generate a new course ID
+        // Generate a new course ID **ONCE**
         const course_id = shortid.generate();
 
-        // Fetch full instructor details from user_id in JWT token
+        // Fetch instructor details using the user_id from the token
         const instructorDetails = await UserModel.getUserById(user_id);
         if (!instructorDetails) {
             return res.status(404).json({ error: "Instructor not found" });
@@ -86,7 +86,7 @@ module.exports = {
 
         // Construct the new course object
         const newCourse = {
-            course_id,
+            course_id,  // ✅ Ensuring the same course_id is used
             course_name,
             course_description,
             course_price,
@@ -95,7 +95,7 @@ module.exports = {
                 user_name: instructorDetails.user_name,
                 user_email: instructorDetails.user_email,
                 user_role: instructorDetails.user_role
-            }, // Only storing necessary instructor details
+            },
             course_image,
             course_videos,
             course_lessons,
@@ -103,17 +103,17 @@ module.exports = {
             course_published,
         };
 
-        // Save the new course to the database
+        // Save the course to the database
         await CourseModel.createCourse(newCourse);
 
-        // Ensure user_uploaded_courses array exists
+        // Ensure `user_uploaded_courses` exists and update it **without creating a new course_id**
         const updatedCourses = instructorDetails.user_uploaded_courses || [];
 
         // Avoid duplicate course entries in user_uploaded_courses
         const courseExists = updatedCourses.some(course => course.course_id === course_id);
         if (!courseExists) {
             updatedCourses.push({
-                course_id,
+                course_id,  // ✅ Ensuring the same course_id is used
                 course_name,
                 course_description,
                 course_price,
@@ -124,7 +124,7 @@ module.exports = {
                 course_published,
             });
 
-            // Update the instructor's uploaded courses with the same course_id
+            // Update the instructor's uploaded courses in the database
             await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
         }
 
