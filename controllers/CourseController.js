@@ -203,32 +203,19 @@ async getAllCoursesForAdmin(req, res) {
   // Update a course by ID
   async updateCourseById(course_id, updatedFields) {
     try {
-        // ✅ Fetch existing course details
-        const existingCourse = await CourseModel.getCourseById(course_id);
-        if (!existingCourse) {
-            return { error: "Course not found" };
-        }
-
-        // ✅ Filter out undefined fields (only update provided values)
-        const filteredUpdates = Object.fromEntries(
-            Object.entries(updatedFields).filter(([_, value]) => value !== undefined)
-        );
-
-        if (Object.keys(filteredUpdates).length === 0) {
-            return { error: "No valid fields provided for update" };
-        }
-
         const updateExpressions = [];
         const expressionAttributeNames = {};
         const expressionAttributeValues = {};
 
-        Object.entries(filteredUpdates).forEach(([key, value]) => {
+        Object.entries(updatedFields).forEach(([key, value]) => {
             const attributeKey = `#${key}`;
             const valueKey = `:${key}`;
             updateExpressions.push(`${attributeKey} = ${valueKey}`);
             expressionAttributeNames[attributeKey] = key;
             expressionAttributeValues[valueKey] = value;
         });
+
+        if (updateExpressions.length === 0) return null;
 
         const params = {
             TableName: TABLE_NAME,
@@ -245,19 +232,19 @@ async getAllCoursesForAdmin(req, res) {
         const updatedCourse = result.Attributes;
 
         // ✅ Fetch the course instructor's details (admin or super)
-        const instructorId = updatedCourse.course_instructor?.user_id;
-        if (instructorId) {
-            const instructor = await UserModel.getUserById(instructorId);
+        const instructorId = updatedCourse.course_instructor.user_id;
+        const instructor = await UserModel.getUserById(instructorId);
 
-            if (instructor && ["admin", "super"].includes(instructor.user_role)) {
-                // ✅ Update `user_uploaded_courses` for the instructor
-                const updatedUploadedCourses = instructor.user_uploaded_courses.map(course =>
-                    course.course_id === course_id ? updatedCourse : course
-                );
-
-                await UserModel.updateUserById(instructorId, { user_uploaded_courses: updatedUploadedCourses });
-            }
+        if (!instructor || !["admin", "super"].includes(instructor.user_role)) {
+            throw new Error("Instructor not found or unauthorized");
         }
+
+        // ✅ Update `user_uploaded_courses` for the instructor
+        const updatedUploadedCourses = instructor.user_uploaded_courses.map(course =>
+            course.course_id === course_id ? updatedCourse : course
+        );
+
+        await UserModel.updateUserById(instructorId, { user_uploaded_courses: updatedUploadedCourses });
 
         return updatedCourse;
     } catch (error) {
@@ -265,7 +252,6 @@ async getAllCoursesForAdmin(req, res) {
         throw new Error("Error updating course");
     }
 },
-//
 
   // Delete a course by ID
   async deleteCourseById(req, res) {
