@@ -26,23 +26,20 @@ module.exports = {
     return result.Item || null;
   },
   async getCoursesByInstructor(admin_id) {
-    const params = {
-        TableName: "COURSES", // Your table name
-    };
-
     try {
-        const result = await dynamoDB.send(new ScanCommand(params)); // Fetch all courses
-
-        // Filter courses in Node.js (since DynamoDB cannot query nested attributes)
-        const filteredCourses = result.Items.filter(course =>
-            course.course_instructor && course.course_instructor.user_id === admin_id
-        );
-
-        return filteredCourses;
+      const params = { TableName: TABLE_NAME };
+      const result = await dynamoDB.send(new ScanCommand(params));
+  
+      // ✅ Filter by admin_id directly (since DynamoDB does not support nested queries)
+      const filteredCourses = result.Items.filter(course =>
+        course.course_instructor && course.course_instructor.user_id === admin_id
+      );
+  
+      return filteredCourses;
     } catch (error) {
-        throw new Error("Error fetching courses by instructor: " + error.message);
+      throw new Error("Error fetching courses by instructor: " + error.message);
     }
-},
+  },
 
 async updateCourseById(req, res) {
   try {
