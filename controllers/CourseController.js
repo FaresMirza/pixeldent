@@ -163,10 +163,25 @@ async getAllCoursesForAdmin(req, res) {
 
       // If the user is an admin, filter courses to only include those they instruct
       const filteredCourses = user_role === "admin"
-          ? allCourses.filter(course => course.course_instructor.includes(user_id))
+          ? allCourses.filter(course => 
+              Array.isArray(course.course_instructor) 
+                  ? course.course_instructor.includes(user_id) 
+                  : course.course_instructor === user_id
+          )
           : allCourses;
 
-      res.status(200).json({ courses: filteredCourses });
+      // Fetch full instructor details for each course
+      const enrichedCourses = await Promise.all(
+          filteredCourses.map(async (course) => {
+              if (course.course_instructor) {
+                  course.course_instructor = await fetchInstructorDetails(course.course_instructor);
+              }
+              return course;
+          })
+      );
+
+      res.status(200).json({ courses: enrichedCourses });
+
   } catch (error) {
       res.status(500).json({ error: "Error fetching courses", details: error.message });
   }
