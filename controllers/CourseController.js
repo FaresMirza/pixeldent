@@ -17,7 +17,7 @@ const courseSchema = Joi.object({
       description: Joi.string(),
       vid_url: Joi.string().uri(),
     })
-  ).required(),
+  ),
   course_files: Joi.array().items(
     Joi.object({
       file_name: Joi.string(),
