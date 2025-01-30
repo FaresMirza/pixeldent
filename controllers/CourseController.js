@@ -209,11 +209,11 @@ async getAllCoursesForAdmin(req, res) {
   
       await UserModel.updateUserById(instructorDetails.user_id, { user_uploaded_courses: updatedCourses });
   
-      return res.status(200).json({ message: "Course updated successfully!", course: { course_id, ...value } });
+       res.status(200).json({ message: "Course updated successfully!", course: { course_id, ...value } });
   
     } catch (error) {
       console.error("Error updating course:", error);
-      return res.status(500).json({ error: "Error updating course", details: error.message });
+       res.status(500).json({ error: "Error updating course", details: error.message });
     }
   },
 
