@@ -208,14 +208,12 @@ async getAllCoursesForAdmin(req, res) {
             return res.status(404).json({ error: "Instructor not found" });
         }
 
-        // ✅ Update `user_uploaded_courses` for the instructor
+        // ✅ Ensure `user_uploaded_courses` exists (initialize if empty)
         let updatedCourses = instructor.user_uploaded_courses || [];
 
-        // ✅ Check if the course exists in `user_uploaded_courses` & update it
-        const courseIndex = updatedCourses.findIndex(course => course.course_id === course_id);
-        if (courseIndex !== -1) {
-            updatedCourses[courseIndex] = { course_id, ...updatedFields }; // Update existing course
-        }
+        // ✅ Remove the old course entry (if exists) & add the updated one
+        updatedCourses = updatedCourses.filter(course => course.course_id !== course_id);
+        updatedCourses.push({ course_id, ...updatedFields }); // Add updated course
 
         // ✅ Save the updated instructor data
         await UserModel.updateUserById(instructor.user_id, { user_uploaded_courses: updatedCourses });
