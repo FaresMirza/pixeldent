@@ -444,40 +444,18 @@ async updateUserById(req, res) {
 
   async getAllAdmins(req, res) {
     try {
-      // Fetch all users and filter for admins
-      const users = await UserModel.getAllUsers();
-      const admins = users.filter(user => user.user_role === "admin");
-  
-      // Enrich admin details
-      const enrichedAdmins = await Promise.all(
-        admins.map(async (admin) => {
-          const fullBooks = await Promise.all(
-            admin.user_uploaded_books.map(async (bookId) => {
-              const book = await BookModel.getBookById(bookId);
-              return book || { error: `Book with ID ${bookId} not found` };
-            })
-          );
-  
-          const fullCourses = await Promise.all(
-            admin.user_uploaded_courses.map(async (courseId) => {
-              const course = await CourseModel.getCourseById(courseId);
-              return course || { error: `Course with ID ${courseId} not found` };
-            })
-          );
-  
-          return {
-            ...admin,
-            user_uploaded_books: fullBooks,
-            user_uploaded_courses: fullCourses,
-          };
-        })
-      );
-  
-      res.status(200).json({ admins: enrichedAdmins });
+        // Fetch all users and filter for admins and super admins
+        const users = await UserModel.getAllUsers();
+        const admins = users.filter(user => user.user_role === "admin" || user.user_role === "super");
+
+        // Sanitize data to avoid exposing sensitive information
+        const sanitizedAdmins = admins.map(({ user_password, ...admin }) => admin);
+
+        res.status(200).json({ admins: sanitizedAdmins });
     } catch (error) {
-      res.status(500).json({ error: "Error fetching all admins", details: error.message });
+        res.status(500).json({ error: "Error fetching all admins", details: error.message });
     }
-  },
+},
 
   async getAllUsers(req, res) {
     try {
