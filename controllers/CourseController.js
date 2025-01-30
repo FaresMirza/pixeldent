@@ -50,15 +50,15 @@ module.exports = {
   // Register a new course
   async registerCourse(req, res) {
     try {
-        // Extract user_id and user_role from the token
+        // ✅ Extract user_id and user_role from the token
         const { user_id, user_role } = req.user;
 
-        // Only allow "admin" or "super" users to register a course
+        // ✅ Only allow "admin" or "super" users to register a course
         if (!["admin", "super"].includes(user_role)) {
             return res.status(403).json({ error: "Access denied. Only admins and super users can add courses." });
         }
 
-        // Validate request body using Joi schema
+        // ✅ Validate request body using Joi schema
         const { error } = courseSchema.validate(req.body);
         if (error) {
             return res.status(400).json({ error: error.details.map((detail) => detail.message) });
@@ -75,22 +75,27 @@ module.exports = {
             course_published,
         } = req.body;
 
-        // Generate a new course ID
+        // ✅ Generate a new course ID
         const course_id = shortid.generate();
 
-        // Fetch full instructor details from user_id in JWT token
+        // ✅ Fetch full instructor details using user_id from JWT token
         const instructorDetails = await UserModel.getUserById(user_id);
         if (!instructorDetails) {
             return res.status(404).json({ error: "Instructor not found" });
         }
 
-        // Construct the new course object
+        // ✅ Construct the new course object
         const newCourse = {
             course_id,
             course_name,
             course_description,
             course_price,
-            course_instructor: instructorDetails, // Store full instructor details
+            course_instructor: {
+                user_id: instructorDetails.user_id,
+                user_name: instructorDetails.user_name,
+                user_email: instructorDetails.user_email,
+                user_role: instructorDetails.user_role,
+            }, // Store only necessary instructor details
             course_image,
             course_videos,
             course_lessons,
@@ -98,26 +103,20 @@ module.exports = {
             course_published,
         };
 
-        // Save the new course to the database
+        // ✅ Save the new course to the database
         await CourseModel.createCourse(newCourse);
 
-        // Add the course to the user's `user_uploaded_courses` array
-        await UserModel.addCourseToUser(user_id, {
-            course_id,
-            course_name,
-            course_description,
-            course_price,
-            course_image,
-            course_videos,
-            course_lessons,
-            course_files,
-            course_published,
-        });
+        // ✅ Ensure instructor's `user_uploaded_courses` is an array and update it
+        const updatedUploadedCourses = Array.isArray(instructorDetails.user_uploaded_courses)
+            ? [...instructorDetails.user_uploaded_courses, newCourse]
+            : [newCourse];
 
-        // Respond with the created course
+        await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedUploadedCourses });
+
+        // ✅ Respond with the created course (including instructor details)
         res.status(201).json({
             message: "Course added successfully!",
-            course: newCourse, // Include full instructor details in the response
+            course: newCourse,
         });
 
     } catch (error) {
