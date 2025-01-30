@@ -352,62 +352,67 @@ async updateUserById(req, res) {
         const { user_id } = req.params;
         const { user_role, user_state, ...allowedUpdates } = req.body;
 
+        // Ensure the requester is authorized
         const requestingUser = req.user;
         if (!requestingUser || (requestingUser.user_role !== "super" && requestingUser.user_id !== user_id)) {
             return res.status(403).json({ error: "Access denied." });
         }
 
+        // Validate input
         const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
         if (error) {
             return res.status(400).json({ error: error.details.map((detail) => detail.message) });
         }
 
+        // Check if admin exists
         const admin = await UserModel.getUserById(user_id);
         if (!admin || (admin.user_role !== "admin" && admin.user_role !== "super")) {
             return res.status(404).json({ error: "Admin not found" });
         }
 
+        // Check for duplicate email
         if (allowedUpdates.user_email) {
             const existingUser = await UserModel.getUserByEmail(allowedUpdates.user_email);
             if (existingUser && existingUser.user_id !== user_id) {
-                return res.status(409).json({ error: "Email already exists." });
+                return res.status(409).json({ error: "Email already exists. Please use a different email address." });
             }
         }
 
-        if (allowedUpdates.user_password !== undefined) {
-            allowedUpdates.user_password = await bcrypt.hash(allowedUpdates.user_password, 10);
+        // Prepare updated fields
+        const updatedFields = { ...allowedUpdates };
+        if (allowedUpdates.user_password) {
+            updatedFields.user_password = await bcrypt.hash(allowedUpdates.user_password, 10);
         }
 
-        await UserModel.updateUserById(user_id, allowedUpdates);
+        // Update the admin in the database
+        await UserModel.updateUserById(user_id, updatedFields);
+
+        // Fetch updated admin details
         const updatedAdmin = await UserModel.getUserById(user_id);
 
-        // Fetch all courses by instructor (without modifying DB structure)
+        // Fetch all courses where the admin is an instructor
         const adminCourses = await CourseModel.getCoursesByInstructor(user_id);
-        if (!adminCourses.length) {
-            return res.status(404).json({ error: "No courses found for this instructor." });
-        }
 
-        // Update `course_instructor` in all courses
+        // Update the `course_instructor` details in each course
         await Promise.all(
             adminCourses.map(async (course) => {
+                const updatedInstructorDetails = await UserModel.getUserById(user_id); // Fetch latest details
                 await CourseModel.updateCourseById(course.course_id, {
-                    course_instructor: {
-                        user_name: updatedAdmin.user_name,
-                        user_email: updatedAdmin.user_email,
-                        user_id: updatedAdmin.user_id, // Keep user_id here
-                    }
+                    course_instructor: updatedInstructorDetails,
                 });
             })
         );
 
-        res.status(200).json({
+        return res.status(200).json({
             message: "Admin updated successfully!",
-            admin: updatedAdmin
+            admin: updatedAdmin,
         });
+
     } catch (error) {
-        res.status(500).json({ error: "Error updating admin", details: error.message });
+        console.error("Error updating admin:", error); // Debugging
+        return res.status(500).json({ error: "Error updating admin", details: error.message });
     }
-},
+},   
 async updateAdminState(req, res) {
   try {
       const { user_id } = req.params; // ID of the admin to update
