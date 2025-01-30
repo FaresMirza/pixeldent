@@ -215,6 +215,7 @@ async getAllCoursesForAdmin(req, res) {
   },
 
   // Update a course by ID
+  //
   async updateCourseById(course_id, updatedFields) {
     try {
         const updateExpressions = [];
