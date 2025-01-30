@@ -265,6 +265,7 @@ async getAllCoursesForAdmin(req, res) {
         throw new Error("Error updating course");
     }
 },
+//
 
   // Delete a course by ID
   async deleteCourseById(req, res) {
