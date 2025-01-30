@@ -25,6 +25,7 @@ module.exports = {
     const result = await dynamoDB.send(new GetCommand(params));
     return result.Item || null;
   },
+  
   async getCoursesByInstructor(admin_id) {
     try {
       const params = { TableName: TABLE_NAME };
