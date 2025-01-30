@@ -45,33 +45,57 @@ module.exports = {
     }
 },
 
-  async updateCourseById(course_id, updatedFields) {
-    const updateExpressions = [];
-    const expressionAttributeNames = {};
-    const expressionAttributeValues = {};
+async updateCourseById(course_id, updatedFields) {
+  try {
+      const updateExpressions = [];
+      const expressionAttributeNames = {};
+      const expressionAttributeValues = {};
 
-    Object.entries(updatedFields).forEach(([key, value]) => {
-      const attributeKey = `#${key}`;
-      const valueKey = `:${key}`;
-      updateExpressions.push(`${attributeKey} = ${valueKey}`);
-      expressionAttributeNames[attributeKey] = key;
-      expressionAttributeValues[valueKey] = value;
-    });
+      Object.entries(updatedFields).forEach(([key, value]) => {
+          const attributeKey = `#${key}`;
+          const valueKey = `:${key}`;
+          updateExpressions.push(`${attributeKey} = ${valueKey}`);
+          expressionAttributeNames[attributeKey] = key;
+          expressionAttributeValues[valueKey] = value;
+      });
 
-    if (updateExpressions.length === 0) return null;
+      if (updateExpressions.length === 0) return null;
 
-    const params = {
-      TableName: TABLE_NAME,
-      Key: { course_id },
-      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
-      ExpressionAttributeNames: expressionAttributeNames,
-      ExpressionAttributeValues: expressionAttributeValues,
-      ReturnValues: "ALL_NEW",
-    };
+      const params = {
+          TableName: TABLE_NAME,
+          Key: { course_id },
+          UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+          ExpressionAttributeNames: expressionAttributeNames,
+          ExpressionAttributeValues: expressionAttributeValues,
+          ReturnValues: "ALL_NEW",
+      };
 
-    const result = await dynamoDB.send(new UpdateCommand(params));
-    return result.Attributes || null;
-  },
+      const result = await dynamoDB.send(new UpdateCommand(params));
+      if (!result.Attributes) return null;
+
+      const updatedCourse = result.Attributes;
+
+      // ✅ Fetch the course instructor's details (admin or super)
+      const instructorId = updatedCourse.course_instructor.user_id;
+      const instructor = await UserModel.getUserById(instructorId);
+
+      if (!instructor || !["admin", "super"].includes(instructor.user_role)) {
+          throw new Error("Instructor not found or unauthorized");
+      }
+
+      // ✅ Update `user_uploaded_courses` for the instructor
+      const updatedUploadedCourses = instructor.user_uploaded_courses.map(course =>
+          course.course_id === course_id ? updatedCourse : course
+      );
+
+      await UserModel.updateUserById(instructorId, { user_uploaded_courses: updatedUploadedCourses });
+
+      return updatedCourse;
+  } catch (error) {
+      console.error("Error updating course:", error);
+      throw new Error("Error updating course");
+  }
+},
 
   async deleteCourseById(course_id) {
     const params = { TableName: TABLE_NAME, Key: { course_id } };
