@@ -171,28 +171,60 @@ async getAllCoursesForAdmin(req, res) {
    // Update a course by ID
    async updateCourseById(req, res) {
     try {
-      const { course_id } = req.params;
-      const { user_id, user_role } = req.user;
+      if (!req || !res || typeof res.status !== "function") {
+        throw new Error("Internal Server Error: Response object is invalid.");
+      }
   
+      const { course_id } = req.params;
+      const { user_id, user_role } = req.user; // Extract user info from JWT
+  
+      // ✅ Allow only "admin" or "super" users
       if (!["admin", "super"].includes(user_role)) {
         return res.status(403).json({ error: "Access denied. Only admins and super users can update courses." });
       }
   
-      const { error, value } = courseSchema.validate(req.body, { allowUnknown: true });
+      // ✅ Validate request body for updates
+      const { error } = courseSchema.validate(req.body, { allowUnknown: true });
       if (error) {
-        return res.status(400).json({ error: error.details.map(detail => detail.message) });
+        return res.status(400).json({ error: error.details.map((detail) => detail.message) });
       }
   
+      // ✅ Fetch the existing course
       const existingCourse = await CourseModel.getCourseById(course_id);
       if (!existingCourse) {
         return res.status(404).json({ error: "Course not found" });
       }
   
+      // ✅ Only allow instructors to update their own courses (except `super` users)
       if (user_role !== "super" && existingCourse.course_instructor.user_id !== user_id) {
         return res.status(403).json({ error: "Access denied. You can only update your own courses." });
       }
   
-      await CourseModel.updateCourseById(course_id, value);
+      // ✅ Extract fields to update
+      const {
+        course_name,
+        course_description,
+        course_price,
+        course_image,
+        course_videos,
+        course_lessons,
+        course_files,
+        course_published,
+      } = req.body;
+  
+      const updatedFields = {
+        course_name: course_name ?? existingCourse.course_name,
+        course_description: course_description ?? existingCourse.course_description,
+        course_price: course_price ?? existingCourse.course_price,
+        course_image: course_image ?? existingCourse.course_image,
+        course_videos: course_videos ?? existingCourse.course_videos,
+        course_lessons: course_lessons ?? existingCourse.course_lessons,
+        course_files: course_files ?? existingCourse.course_files,
+        course_published: course_published ?? existingCourse.course_published,
+      };
+  
+      // ✅ Update course in DynamoDB
+      await CourseModel.updateCourseById(course_id, updatedFields);
   
       // ✅ Fetch instructor details
       const instructorDetails = await UserModel.getUserById(existingCourse.course_instructor.user_id);
@@ -200,20 +232,24 @@ async getAllCoursesForAdmin(req, res) {
         return res.status(404).json({ error: "Instructor not found" });
       }
   
-      // ✅ Update the instructor's uploaded courses
+      // ✅ Update `user_uploaded_courses` for the instructor
       const updatedCourses = instructorDetails.user_uploaded_courses || [];
       const courseIndex = updatedCourses.findIndex(course => course.course_id === course_id);
       if (courseIndex !== -1) {
-        updatedCourses[courseIndex] = { course_id, ...value };
+        updatedCourses[courseIndex] = { course_id, ...updatedFields };
       }
   
       await UserModel.updateUserById(instructorDetails.user_id, { user_uploaded_courses: updatedCourses });
   
-       res.status(200).json({ message: "Course updated successfully!", course: { course_id, ...value } });
+      // ✅ Send response
+      return res.status(200).json({
+        message: "Course updated successfully!",
+        course: { course_id, ...updatedFields },
+      });
   
     } catch (error) {
       console.error("Error updating course:", error);
-       res.status(500).json({ error: "Error updating course", details: error.message });
+      return res.status(500).json({ error: "Error updating course", details: error.message });
     }
   },
 
