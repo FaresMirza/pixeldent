@@ -66,9 +66,9 @@ module.exports = {
             return res.status(404).json({ error: "Instructor not found" });
         }
 
-        // Construct the new course object
+        // Construct the new course object (Includes course_instructor)
         const newCourse = {
-            course_id,  // ✅ Ensuring the same course_id is used
+            course_id,
             course_name,
             course_description,
             course_price,
@@ -88,14 +88,14 @@ module.exports = {
         // Save the course to the database
         await CourseModel.createCourse(newCourse);
 
-        // Ensure `user_uploaded_courses` exists and update it **without creating a new course_id**
+        // Ensure `user_uploaded_courses` exists and update it **without including course_instructor**
         const updatedCourses = instructorDetails.user_uploaded_courses || [];
 
         // Avoid duplicate course entries in user_uploaded_courses
         const courseExists = updatedCourses.some(course => course.course_id === course_id);
         if (!courseExists) {
             updatedCourses.push({
-                course_id,  // ✅ Ensuring the same course_id is used
+                course_id,
                 course_name,
                 course_description,
                 course_price,
