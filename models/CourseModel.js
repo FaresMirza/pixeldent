@@ -27,17 +27,18 @@ module.exports = {
   },
   async getCoursesByInstructor(admin_id) {
     const params = {
-        TableName: "COURSES",  // Ensure the correct table name is used
-        IndexName: "admin_id-index", // Ensure this index exists in DynamoDB
-        KeyConditionExpression: "course_instructor.user_id = :admin_id",
-        ExpressionAttributeValues: {
-            ":admin_id": admin_id
-        }
+        TableName: "COURSES", // Your table name
     };
 
     try {
-        const result = await dynamoDB.send(new QueryCommand(params));
-        return result.Items || [];
+        const result = await dynamoDB.send(new ScanCommand(params)); // Fetch all courses
+
+        // Filter courses in Node.js (since DynamoDB cannot query nested attributes)
+        const filteredCourses = result.Items.filter(course =>
+            course.course_instructor && course.course_instructor.user_id === admin_id
+        );
+
+        return filteredCourses;
     } catch (error) {
         throw new Error("Error fetching courses by instructor: " + error.message);
     }
