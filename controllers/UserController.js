@@ -358,7 +358,7 @@ async updateUserById(req, res) {
             return res.status(403).json({ error: "Access denied." });
         }
 
-        // Validate input
+        // Validate input using Joi
         const { error } = adminSchema.validate(allowedUpdates, { allowUnknown: true });
         if (error) {
             return res.status(400).json({ error: error.details.map((detail) => detail.message) });
@@ -393,15 +393,24 @@ async updateUserById(req, res) {
         // Fetch all courses where the admin is an instructor
         const adminCourses = await CourseModel.getCoursesByInstructor(user_id);
 
-        // Update the `course_instructor` details in each course
-        await Promise.all(
-            adminCourses.map(async (course) => {
-                const updatedInstructorDetails = await UserModel.getUserById(user_id); // Fetch latest details
-                await CourseModel.updateCourseById(course.course_id, {
-                    course_instructor: updatedInstructorDetails,
-                });
-            })
-        );
+        if (adminCourses.length > 0) {
+            // Prepare updated instructor data (without sensitive fields)
+            const updatedInstructorDetails = {
+                user_id: updatedAdmin.user_id,
+                user_name: updatedAdmin.user_name,
+                user_email: updatedAdmin.user_email,
+                user_role: updatedAdmin.user_role,
+            };
+
+            // Update the `course_instructor` details in each course
+            await Promise.all(
+                adminCourses.map(async (course) => {
+                    await CourseModel.updateCourseById(course.course_id, {
+                        course_instructor: updatedInstructorDetails,
+                    });
+                })
+            );
+        }
 
         return res.status(200).json({
             message: "Admin updated successfully!",
@@ -409,10 +418,10 @@ async updateUserById(req, res) {
         });
 
     } catch (error) {
-        console.error("Error updating admin:", error); // Debugging
+        console.error("Error updating admin:", error);
         return res.status(500).json({ error: "Error updating admin", details: error.message });
     }
-},   
+},
 async updateAdminState(req, res) {
   try {
       const { user_id } = req.params; // ID of the admin to update
