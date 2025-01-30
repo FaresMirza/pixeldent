@@ -1,6 +1,6 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand, ScanCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
-
+const UserModel = require("../models/UserModel");
 const client = new DynamoDBClient({ region: "me-south-1" });
 const dynamoDB = DynamoDBDocumentClient.from(client, {
   marshallOptions: { removeUndefinedValues: true },
