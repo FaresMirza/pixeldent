@@ -8,7 +8,7 @@ const courseSchema = Joi.object({
   course_name: Joi.string().min(1).required(),
   course_description: Joi.string().required(),
   course_price: Joi.number().positive().required(),
-  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())).required(),
+  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())),
   course_image: Joi.string().optional(),
   course_videos: Joi.array().items(Joi.string()).required(), // New addition
   course_lessons: Joi.array().items(
