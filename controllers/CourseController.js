@@ -23,7 +23,7 @@ const courseSchema = Joi.object({
       file_name: Joi.string(),
       file_url: Joi.string().uri(),
     })
-  ).required(),
+  ),
   course_published: Joi.boolean(),
 });
 
