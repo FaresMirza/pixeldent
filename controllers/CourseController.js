@@ -50,7 +50,7 @@ module.exports = {
   // Register a new course
   async registerCourse(req, res) {
     try {
-        // Extract user_id and user_role from the token
+        // Extract user_id and user_role from the JWT token
         const { user_id, user_role } = req.user;
 
         // Only allow "admin" or "super" users to register a course
@@ -78,19 +78,13 @@ module.exports = {
         // Generate a new course ID
         const course_id = shortid.generate();
 
-        // Fetch full instructor details
-        const instructorDetails = await UserModel.getUserById(user_id);
-        if (!instructorDetails) {
-            return res.status(404).json({ error: "Instructor not found" });
-        }
-
         // Construct the new course object
         const newCourse = {
             course_id,
             course_name,
             course_description,
             course_price,
-            course_instructor: instructorDetails, // Store full instructor details
+            course_instructor: user_id, // Assign directly from JWT token
             course_image,
             course_videos,
             course_lessons,
@@ -102,7 +96,17 @@ module.exports = {
         await CourseModel.createCourse(newCourse);
 
         // Add the course to the user's `user_uploaded_courses` array
-        await UserModel.addCourseToUser(user_id, newCourse);
+        await UserModel.addCourseToUser(user_id, {
+            course_id,
+            course_name,
+            course_description,
+            course_price,
+            course_image,
+            course_videos,
+            course_lessons,
+            course_files,
+            course_published,
+        });
 
         // Respond with the created course
         res.status(201).json({
