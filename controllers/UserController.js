@@ -191,16 +191,16 @@ module.exports = {
       };
       res.cookie("JWT_NAME", token, cookieOptions);
       
-      // res.status(200).json({
-      //   message: "Login successful!",
-      //   user: {
-      //     user_id: user.user_id,
-      //     user_role: user.user_role,
-      //   },
-      //   token,
-      // });
+      res.status(200).json({
+        message: "Login successful!",
+        user: {
+          user_id: user.user_id,
+          user_role: user.user_role,
+        },
+        token,
+      });
     } catch (error) {
-      res.status(500).json({ error: "Error logging in", details: error });
+      res.status(500).json({ error: "Error logging in", details: error.message });
     }
   },
 
