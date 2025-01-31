@@ -192,7 +192,11 @@ module.exports = {
       res.cookie("JWT_NAME", token, cookieOptions);
       
       res.status(200).json({
-        message: "Login successful!"}
+        message: "Login successful!",
+        user_id: user.id,
+        user_role: user.role
+      },
+        
       );
     } catch (error) {
       res.status(500).json({ error: "Error logging in", details: error.message });
