@@ -193,10 +193,10 @@ module.exports = {
       
       res.status(200).json({
         message: "Login successful!",
-        user:{
-        user_id: user.id,
-        user_role: user.role
-        }
+        
+        user_id: user.user_id,
+        user_role: user.user_role
+        
       },
         
       );
