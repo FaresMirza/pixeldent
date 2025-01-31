@@ -517,48 +517,25 @@ async updateAdminState(req, res) {
     }
 },
 
-  async getAllUsers(req, res) {
-    try {
-      // Verify if the user making the request is a superadmin
-      const requestingUser = req.user; // Assume req.user is populated by the authentication middleware
-      if (!requestingUser || requestingUser.user_role !== "super") {
-        return res.status(403).json({ error: "Access denied. Only super users can view all users." });
+async getAllNormalUsers(req, res) {
+  try {
+      // Ensure only super admins can access
+      const { user_role } = req.user;
+      if (user_role !== "super") {
+          return res.status(403).json({ error: "Access denied. Only super users can view normal users." });
       }
-  
-      // Fetch all users
+
+      // Fetch all users from the database
       const users = await UserModel.getAllUsers();
-  
-      // Enrich user details with full books and courses
-      const enrichedUsers = await Promise.all(
-        users.map(async (user) => {
-          const fullBooks = await Promise.all(
-            user.user_books.map(async (bookId) => {
-              const book = await BookModel.getBookById(bookId);
-              return book || { error: `Book with ID ${bookId} not found` };
-            })
-          );
-  
-          const fullCourses = await Promise.all(
-            user.user_courses.map(async (courseId) => {
-              const course = await CourseModel.getCourseById(courseId);
-              return course || { error: `Course with ID ${courseId} not found` };
-            })
-          );
-  
-          return {
-            ...user,
-            user_books: fullBooks,
-            user_courses: fullCourses,
-          };
-        })
-      );
-  
-      // Exclude passwords from the response
-      const sanitizedUsers = enrichedUsers.map(({ user_password, ...rest }) => rest);
-  
-      res.status(200).json({ users: sanitizedUsers });
-    } catch (error) {
-      res.status(500).json({ error: "Error fetching all users", details: error.message });
-    }
+
+      // Filter only normal users and exclude passwords
+      const normalUsers = users
+          .filter(user => user.user_role === "normal")
+          .map(({ user_password, ...rest }) => rest);
+
+      res.status(200).json({ users: normalUsers });
+  } catch (error) {
+      res.status(500).json({ error: "Error fetching normal users", details: error.message });
   }
+}
 };
