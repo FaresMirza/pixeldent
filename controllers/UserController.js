@@ -517,7 +517,7 @@ async updateAdminState(req, res) {
     }
 },
 
-async getAllNormalUsers(req, res) {
+async getAllUsers(req, res) {
   try {
       // Ensure only super admins can access
       const { user_role } = req.user;
