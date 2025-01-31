@@ -142,6 +142,7 @@ module.exports = {
       res.status(500).json({ error: "Error registering admin", details: error.message });
     }
 },
+
   async loginUser(req, res) {
     try {
       const { user_email, user_password } = req.body;
@@ -199,7 +200,7 @@ module.exports = {
       //   token,
       // });
     } catch (error) {
-      res.status(500).json({ error: "Error logging in", details: error.message });
+      res.status(500).json({ error: "Error logging in", details: error });
     }
   },
 
