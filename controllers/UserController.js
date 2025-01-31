@@ -89,7 +89,7 @@ module.exports = {
           user_role: newUser.user_role,
         },
         process.env.JWT_SECRET, // Secret key from environment variables
-        { expiresIn: "1h" } // Token expiration time
+        { expiresIn: process.env.JWT_EXP_IN } // Token expiration time
       );
   
       res.status(201).json({
@@ -175,18 +175,29 @@ module.exports = {
           user_role: user.user_role,
         },
         process.env.JWT_SECRET, // Use an environment variable for the secret
-        { expiresIn: "1h" } // Token expiration time
+        { expiresIn: process.env.JWT_EXP_IN } // Token expiration time
       );
   
       // Return the response with user details and token
-      res.status(200).json({
-        message: "Login successful!",
-        user: {
-          user_id: user.user_id,
-          user_role: user.user_role,
-        },
-        token,
-      });
+
+      const cookieOptions = {
+        expires: new Date(
+            Date.now() + process.env.JWT_COOKIE_EXPIRES * 24 * 60 * 60 * 1000
+        ),
+        httpOnly: true,
+        sameSite: "strict",
+        secure: true
+      };
+      res.cookie("JWT_NAME", token, cookieOptions);
+      
+      // res.status(200).json({
+      //   message: "Login successful!",
+      //   user: {
+      //     user_id: user.user_id,
+      //     user_role: user.user_role,
+      //   },
+      //   token,
+      // });
     } catch (error) {
       res.status(500).json({ error: "Error logging in", details: error.message });
     }
