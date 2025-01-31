@@ -181,21 +181,23 @@ module.exports = {
   
       // Return the response with user details and token
 
-      const cookieOptions = {
-        expires: new Date(
-            Date.now() + process.env.JWT_COOKIE_EXPIRES * 24 * 60 * 60 * 1000
-        ),
-        httpOnly: true,
-        sameSite: "strict",
-        secure: true
-      };
-      res.cookie("JWT_NAME", token, cookieOptions);
+      // const cookieOptions = {
+      //   expires: new Date(
+      //       Date.now() + process.env.JWT_COOKIE_EXPIRES * 24 * 60 * 60 * 1000
+      //   ),
+      //   httpOnly: true,
+      //   sameSite: "strict",
+      //   secure: true
+      // };
+      // res.cookie("JWT_NAME", token, cookieOptions);
       
       res.status(200).json({
         message: "Login successful!",
         
         user_id: user.user_id,
-        user_role: user.user_role
+        user_role: user.user_role,
+        token
+        
         
       },
         
