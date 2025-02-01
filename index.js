@@ -7,6 +7,7 @@ const AuthRoutes = require("./routes/AuthRoutes")
 
 const app = express();
 app.use(express.json()); // Parse JSON bodies
+app.use(express.urlencoded({ extended: true }));
 
 // Define routes
 app.use("/pixeldent/user", UserRoutes); // Prefix for user routes
