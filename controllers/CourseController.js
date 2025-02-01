@@ -2,78 +2,71 @@ const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
-const { uploadFileToS3 } = require("../services/s3Service");
-
-
 
 // Joi schema for course validation
 const courseSchema = Joi.object({
-  course_name: Joi.string().min(1).required(),
-  course_description: Joi.string().required(),
-  course_price: Joi.number().positive().required(),
-  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())).required(),
-  
-  // ✅ Image field is now a file instead of a URL
-  course_image: Joi.any().optional(),
-
-  // ✅ Videos field is now an array of files instead of URLs
-  course_videos: Joi.array().items(Joi.any()).optional(),
-
-  // ✅ Lessons now expect video files for `vid_url`
+  course_name: Joi.string().min(1),
+  course_description: Joi.string(),
+  course_price: Joi.number().positive(),
+  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())),
+  course_image: Joi.string().optional(),
+  course_videos: Joi.array().items(Joi.string()), // New addition
   course_lessons: Joi.array().items(
-      Joi.object({
-          subject: Joi.string().required(),
-          description: Joi.string().required(),
-          vid_url: Joi.any().optional(), // Accepts file uploads
-      })
-  ).optional(),
-
+    Joi.object({
+      subject: Joi.string(),
+      description: Joi.string(),
+      vid_url: Joi.string().uri(),
+    })
+  ),
   course_files: Joi.array().items(
-      Joi.object({
-          file_name: Joi.string().required(),
-          file_url: Joi.string().uri().required(),
-      })
-  ).optional(),
-
-  course_published: Joi.boolean().required(),
+    Joi.object({
+      file_name: Joi.string(),
+      file_url: Joi.string().uri(),
+    })
+  ),
+  course_published: Joi.boolean(),
 });
-
 
 
 module.exports = {
   // Register a new course
   async registerCourse(req, res) {
     try {
+        // Extract user_id and user_role from the token
         const { user_id, user_role } = req.user;
+
+        // Only allow "admin" or "super" users to register a course
         if (!["admin", "super"].includes(user_role)) {
             return res.status(403).json({ error: "Access denied. Only admins and super users can add courses." });
         }
 
-        // ✅ Explicitly parse form-data fields
-        const course_name = req.body.course_name?.trim();
-        const course_description = req.body.course_description?.trim();
-        const course_price = parseFloat(req.body.course_price);
-        const course_published = req.body.course_published === "true";
-
-        // ✅ Validate required fields manually
-        if (!course_name) {
-            return res.status(400).json({ error: ["\"course_name\" is required"] });
+        // Validate request body using Joi schema
+        const { error } = courseSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
         }
 
-        // Generate a unique course ID
+        let {
+            course_name,
+            course_description,
+            course_price,
+            course_image,
+            course_videos,
+            course_lessons,
+            course_files,
+            course_published,
+        } = req.body;
+
+        // Generate a new course ID **ONCE**
         const course_id = shortid.generate();
 
-        // ✅ Ensure file uploads are handled correctly
-        const course_image = req.files?.course_image ? req.files.course_image[0].path : null;
-        const course_videos = req.files?.course_videos ? req.files.course_videos.map(file => file.path) : [];
-
-        // Fetch instructor details
+        // Fetch instructor details using the user_id from the token
         const instructorDetails = await UserModel.getUserById(user_id);
         if (!instructorDetails) {
             return res.status(404).json({ error: "Instructor not found" });
         }
 
-        // Construct course object
+        // Construct the new course object (Includes course_instructor)
         const newCourse = {
             course_id,
             course_name,
@@ -81,31 +74,43 @@ module.exports = {
             course_price,
             course_instructor: {
                 user_id: instructorDetails.user_id,
+                user_name: instructorDetails.user_name,
                 user_email: instructorDetails.user_email,
                 user_role: instructorDetails.user_role
             },
-            course_image, 
-            course_videos,
-            course_published
-        };
-
-        // Save the course in DynamoDB
-        await CourseModel.createCourse(newCourse);
-
-        // Update instructor's uploaded courses (excluding course_instructor)
-        const updatedCourses = instructorDetails.user_uploaded_courses || [];
-        updatedCourses.push({
-            course_id,
-            course_name,
-            course_description,
-            course_price,
             course_image,
             course_videos,
-            course_published
-        });
+            course_lessons,
+            course_files,
+            course_published,
+        };
 
-        await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
+        // Save the course to the database
+        await CourseModel.createCourse(newCourse);
 
+        // Ensure `user_uploaded_courses` exists and update it **without including course_instructor**
+        const updatedCourses = instructorDetails.user_uploaded_courses || [];
+
+        // Avoid duplicate course entries in user_uploaded_courses
+        const courseExists = updatedCourses.some(course => course.course_id === course_id);
+        if (!courseExists) {
+            updatedCourses.push({
+                course_id,
+                course_name,
+                course_description,
+                course_price,
+                course_image,
+                course_videos,
+                course_lessons,
+                course_files,
+                course_published,
+            });
+
+            // Update the instructor's uploaded courses in the database
+            await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
+        }
+
+        // Respond with the created course
         res.status(201).json({
             message: "Course added successfully!",
             course: newCourse,
@@ -115,6 +120,7 @@ module.exports = {
         res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
     }
 },
+
   // Get all courses
   async getAllCourses(req, res) {
     try {
