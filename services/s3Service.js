@@ -9,15 +9,14 @@ const BUCKET_NAME = "pixeldentcourses"; // Change this
 // Configure Multer to handle file uploads
 const upload = multer({
     storage: multerS3({
-        s3,
+        s3: s3,
         bucket: BUCKET_NAME,
-        metadata: (req, file, cb) => {
-            cb(null, { fieldName: file.fieldname });
-        },
-        key: (req, file, cb) => {
-            cb(null, `${Date.now()}-${file.originalname}`);
-        },
-    }),
+        key: function (req, file, cb) {
+            const fileExtension = path.extname(file.originalname);
+            const fileName = `${Date.now()}-${file.originalname}`;
+            cb(null, `uploads/${fileName}`);
+        }
+    })
 });
 
 // Function to manually upload files

@@ -5,6 +5,7 @@ const Joi = require("joi");
 const { uploadFileToS3 } = require("../services/s3Service");
 
 
+
 // Joi schema for course validation
 const courseSchema = Joi.object({
   course_name: Joi.string().min(1).required(),
@@ -48,49 +49,32 @@ module.exports = {
             return res.status(403).json({ error: "Access denied. Only admins and super users can add courses." });
         }
 
-        // Parse text fields from body
+        const { error } = courseSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
+        }
+
         let {
             course_name,
             course_description,
             course_price,
-            course_published,
-            course_lessons
+            course_published
         } = req.body;
 
+        // Generate a unique course ID
         const course_id = shortid.generate();
 
-        // Upload course image if provided
-        let course_image = null;
-        if (req.files && req.files["course_image"]) {
-            const imageFile = req.files["course_image"][0];
-            course_image = await uploadFileToS3(imageFile.buffer, `course_images/${course_id}-${imageFile.originalname}`);
-        }
+        // Check if files were uploaded
+        const course_image = req.files["course_image"] ? req.files["course_image"][0].location : null;
+        const course_videos = req.files["course_videos"] ? req.files["course_videos"].map(file => file.location) : [];
 
-        // Upload course videos if provided
-        let course_videos = [];
-        if (req.files && req.files["course_videos"]) {
-            for (let video of req.files["course_videos"]) {
-                const videoUrl = await uploadFileToS3(video.buffer, `course_videos/${course_id}-${video.originalname}`);
-                course_videos.push(videoUrl);
-            }
-        }
-
-        // Upload lesson videos if provided
-        if (course_lessons) {
-            course_lessons = JSON.parse(course_lessons); // Parse lessons from string
-            for (let lesson of course_lessons) {
-                if (lesson.vid_url && req.files[`lesson_${lesson.subject}`]) {
-                    const lessonFile = req.files[`lesson_${lesson.subject}`][0];
-                    lesson.vid_url = await uploadFileToS3(lessonFile.buffer, `lesson_videos/${course_id}-${lessonFile.originalname}`);
-                }
-            }
-        }
-
+        // Fetch instructor details
         const instructorDetails = await UserModel.getUserById(user_id);
         if (!instructorDetails) {
             return res.status(404).json({ error: "Instructor not found" });
         }
 
+        // Construct course object
         const newCourse = {
             course_id,
             course_name,
@@ -98,19 +82,36 @@ module.exports = {
             course_price,
             course_instructor: {
                 user_id: instructorDetails.user_id,
-                user_name: instructorDetails.user_name,
                 user_email: instructorDetails.user_email,
                 user_role: instructorDetails.user_role
             },
-            course_image,
+            course_image, 
             course_videos,
-            course_lessons,
-            course_published,
+            course_published
         };
 
+        // Save the course in DynamoDB
         await CourseModel.createCourse(newCourse);
 
-        res.status(201).json({ message: "Course added successfully!", course: newCourse });
+        // Update the instructor's uploaded courses (excluding course_instructor)
+        const updatedCourses = instructorDetails.user_uploaded_courses || [];
+        updatedCourses.push({
+            course_id,
+            course_name,
+            course_description,
+            course_price,
+            course_image,
+            course_videos,
+            course_published
+        });
+
+        await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
+
+        res.status(201).json({
+            message: "Course added successfully!",
+            course: newCourse,
+        });
+
     } catch (error) {
         res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
     }
