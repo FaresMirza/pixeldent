@@ -5,7 +5,21 @@ const CourseController = require("../controllers/CourseController")
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 const router = express.Router();
 
-router.get("/courses", verifyToken,verifyRole(["admin"]), CourseController.getAllCourses)
+// S3 things
+
+const multer = require("multer");
+const storage = multer.memoryStorage(); // Store files in memory before uploading to S3
+const upload = multer({ storage });
+
+const uploadFields = [
+    { name: "course_image", maxCount: 1 },
+    { name: "course_videos", maxCount: 10 },
+    { name: "course_lessons", maxCount: 10 },
+    { name: "course_files", maxCount: 10 },
+];
+
+
+router.get("/courses", verifyToken,verifyRole(["admin"]),upload.fields(uploadFields), CourseController.getAllCourses)
 router.get("/admincourses", verifyToken,verifyRole(["admin"]), CourseController.getAllCoursesForAdmin)
 router.post("/courses",verifyToken,verifyRole(["admin"]),  CourseController.registerCourse)
 router.get("/books",verifyToken,verifyRole(["admin"]),  BookController.getAllBooks); // Get all books

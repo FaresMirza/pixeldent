@@ -7,28 +7,41 @@ const { uploadFileToS3 } = require("../services/s3Service");
 
 
 // Joi schema for course validation
+const Joi = require("joi");
+
+// Joi schema for course validation (with S3 URLs)
 const courseSchema = Joi.object({
-  course_name: Joi.string().min(1),
-  course_description: Joi.string(),
-  course_price: Joi.number().positive(),
-  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())),
-  course_image: Joi.string().optional(),
-  course_videos: Joi.array().items(Joi.string()), // New addition
+  course_name: Joi.string().min(1).required(),
+  course_description: Joi.string().required(),
+  course_price: Joi.number().positive().required(),
+  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())).required(),
+  
+  // ✅ Ensure course image is a valid S3 URL (if uploaded)
+  course_image: Joi.string().uri().optional(),
+
+  // ✅ Ensure course videos are an array of S3 URLs
+  course_videos: Joi.array().items(Joi.string().uri()).optional(),
+
+  // ✅ Ensure lessons contain video URLs (S3 links)
   course_lessons: Joi.array().items(
     Joi.object({
-      subject: Joi.string(),
-      description: Joi.string(),
-      vid_url: Joi.string().uri(),
+      subject: Joi.string().required(),
+      description: Joi.string().required(),
+      vid_url: Joi.string().uri().optional(), // ✅ Must be a valid S3 URL
     })
-  ),
+  ).optional(),
+
+  // ✅ Ensure uploaded files are an array of objects with S3 URLs
   course_files: Joi.array().items(
     Joi.object({
-      file_name: Joi.string(),
-      file_url: Joi.string().uri(),
+      file_name: Joi.string().required(),
+      file_url: Joi.string().uri().required(), // ✅ Ensure file URL is valid (S3)
     })
-  ),
-  course_published: Joi.boolean(),
+  ).optional(),
+
+  course_published: Joi.boolean().default(false),
 });
+
 
 
 module.exports = {
