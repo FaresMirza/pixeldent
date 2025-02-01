@@ -1,5 +1,4 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const { Readable } = require("stream");
 
 const s3 = new S3Client({
     region: "me-south-1"
