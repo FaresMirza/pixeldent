@@ -3,6 +3,9 @@ const UserController = require("../controllers/UserController");
 const BookController = require("../controllers/BookController")
 const CourseController = require("../controllers/CourseController")
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
+const multer = require("multer");
+const storage = multer.memoryStorage(); // Stores files in memory before sending to S3
+const upload = multer({ storage: storage });
 const router = express.Router();
 
 const uploadFields = upload.fields([
