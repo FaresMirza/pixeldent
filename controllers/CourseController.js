@@ -6,8 +6,6 @@ const { uploadFileToS3 } = require("../services/s3Service");
 
 
 
-// Joi schema for course validation
-const Joi = require("joi");
 
 // Joi schema for course validation (with S3 URLs)
 const courseSchema = Joi.object({
