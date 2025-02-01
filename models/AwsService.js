@@ -18,7 +18,8 @@ module.exports = {
                 Bucket: process.env.AWS_S3_BUCKET,
                 Key: key,
                 Body: Readable.from(fileBuffer),
-                ContentType: fileMimeType
+                ContentType: fileMimeType,
+                ContentLength: fileBuffer.length // ✅ Fix for "undefined" header issue
             };
 
             await s3.send(new PutObjectCommand(uploadParams));
