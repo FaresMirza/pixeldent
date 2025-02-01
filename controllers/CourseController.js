@@ -110,17 +110,17 @@ module.exports = {
       }
 
       // ✅ Validate course data with Joi
-      const { error, value: courseData } = courseSchema.validate({
-          ...req.body,
-          course_videos: courseVideos,
-          course_image: courseImage,
-          course_lessons: courseLessons,
-          course_files: courseFiles,
-      }, { abortEarly: false });
+      // const { error, value: courseData } = courseSchema.validate({
+      //     ...req.body,
+      //     course_videos: courseVideos,
+      //     course_image: courseImage,
+      //     course_lessons: courseLessons,
+      //     course_files: courseFiles,
+      // }, { abortEarly: false });
 
-      if (error) {
-          return res.status(400).json({ error: error.details.map(detail => detail.message) });
-      }
+      // if (error) {
+      //     return res.status(400).json({ error: error.details.map(detail => detail.message) });
+      // }
 
       // ✅ Generate unique course_id
       const course_id = shortid.generate();
