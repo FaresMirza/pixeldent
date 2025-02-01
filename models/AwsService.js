@@ -4,10 +4,7 @@ const { Readable } = require("stream");
 // Initialize S3 Client with credentials and region
 const s3 = new S3Client({
     region: process.env.AWS_REGION_S3, // Ensure this is correctly set in your .env file
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    }
+ 
 });
 
 /**
