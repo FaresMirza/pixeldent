@@ -37,28 +37,28 @@ const courseSchema = Joi.object({
 module.exports = {
   // Register a new course
   async postToS3Bucket(req, res) {
-    try {
-        upload.single("file")(req, res, async function (err) {
+    upload.single("file")(req, res, async (err) => {
+        try {
             if (err) {
-                return res.status(500).json({ error: "Error processing file", details: err.message });
+                return res.status(400).json({ error: "Error processing file", details: err.message });
             }
             if (!req.file) {
                 return res.status(400).json({ error: "No file uploaded" });
             }
 
-            // رفع الملف إلى S3 باستخدام المودل
+            // Upload file to S3
             const fileUrl = await uploadFileToS3(req.file.buffer, req.file.originalname, req.file.mimetype);
 
             return res.status(200).json({
                 message: "File uploaded successfully",
                 fileUrl: fileUrl
             });
-        });
-    } catch (error) {
-        res.status(500).json({ error: "Error uploading file", details: error.message });
-    }
+
+        } catch (error) {
+            return res.status(500).json({ error: "Error uploading file", details: error.message });
+        }
+    });
 },
-  
 
   // Get all courses
   async getAllCourses(req, res) {
