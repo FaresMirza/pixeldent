@@ -2,6 +2,9 @@ const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
+const { uploadFileToS3 } = require("../services/s3Service"); 
+
+
 
 // Joi schema for course validation
 const courseSchema = Joi.object({
@@ -30,108 +33,124 @@ const courseSchema = Joi.object({
 
 module.exports = {
   // Register a new course
-  const shortid = require("shortid");
-const Joi = require("joi");
-const UserModel = require("../models/UserModel");
-const CourseModel = require("../models/CourseModel");
-
-async registerCourse(req, res) {
+  async registerCourse(req,res) {
     try {
-        // Extract user_id and user_role from the token
-        const { user_id, user_role } = req.user;
+      const { user_id, user_role } = req.user;
 
-        // Only allow "admin" or "super" users to register a course
-        if (!["admin", "super"].includes(user_role)) {
-            return res.status(403).json({ error: "Access denied. Only admins and super users can add courses." });
-        }
+      // ✅ Allow only "admin" & "super" to create courses
+      if (!["admin", "super"].includes(user_role)) {
+          return res.status(403).json({ error: "Access denied. Only admins and super users can register courses." });
+      }
 
-        // Validate request body using Joi schema
-        const { error } = courseSchema.validate(req.body, { abortEarly: false });
-        if (error) {
-            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-        }
+      // ✅ Prepare storage for S3 file URLs
+      let courseVideos = [];
+      let courseImage = null;
+      let courseLessons = [];
+      let courseFiles = [];
 
-        let {
-            course_name,
-            course_description,
-            course_price,
-            course_image,
-            course_videos,
-            course_lessons,
-            course_files,
-            course_published,
-        } = req.body;
+      // ✅ Upload files to S3 and store URLs
+      const bucketName = process.env.AWS_S3_BUCKET;
 
-        // Assign default values if missing
-        course_image = course_image || "https://example.com/default-course-image.jpg";
-        course_videos = Array.isArray(course_videos) ? course_videos : [];
-        course_lessons = Array.isArray(course_lessons) ? course_lessons : [];
-        course_files = Array.isArray(course_files) ? course_files : [];
-        course_published = course_published || false;
+      if (req.files) {
+          // Upload course image
+          if (req.files.course_image) {
+              const imageFile = req.files.course_image[0];
+              courseImage = await uploadFileToS3(bucketName, `course_images/${shortid.generate()}-${imageFile.originalname}`, imageFile.buffer, imageFile.mimetype);
+          }
 
-        // Generate a new course ID
-        const course_id = shortid.generate();
+          // Upload course videos
+          if (req.files.course_videos) {
+              courseVideos = await Promise.all(req.files.course_videos.map(async (file) => {
+                  return uploadFileToS3(bucketName, `course_videos/${shortid.generate()}-${file.originalname}`, file.buffer, file.mimetype);
+              }));
+          }
 
-        // Fetch instructor details using the user_id from the token
-        const instructorDetails = await UserModel.getUserById(user_id);
-        if (!instructorDetails) {
-            return res.status(404).json({ error: "Instructor not found" });
-        }
+          // Upload course lessons videos
+          let parsedLessons = [];
+          if (req.body.course_lessons) {
+              try {
+                  parsedLessons = JSON.parse(req.body.course_lessons);
+              } catch (err) {
+                  return res.status(400).json({ error: "Invalid format for course_lessons. Must be a JSON array." });
+              }
+          }
 
-        // Construct the new course object
-        const newCourse = {
-            course_id,
-            course_name,
-            course_description,
-            course_price,
-            course_instructor: {
-                user_id: instructorDetails.user_id,
-                user_name: instructorDetails.user_name, // Ensure this is included
-                user_email: instructorDetails.user_email,
-                user_role: instructorDetails.user_role
-            },
-            course_image,
-            course_videos,
-            course_lessons,
-            course_files,
-            course_published,
-        };
+          if (req.files.course_lessons) {
+              courseLessons = await Promise.all(parsedLessons.map(async (lesson, index) => ({
+                  subject: lesson.subject,
+                  description: lesson.description,
+                  vid_url: req.files.course_lessons[index]
+                      ? await uploadFileToS3(bucketName, `course_lessons/${shortid.generate()}-${req.files.course_lessons[index].originalname}`, req.files.course_lessons[index].buffer, req.files.course_lessons[index].mimetype)
+                      : null,
+              })));
+          }
 
-        // Save the course to the database
-        await CourseModel.createCourse(newCourse);
+          // Upload course files
+          if (req.files.course_files) {
+              courseFiles = await Promise.all(req.files.course_files.map(async (file) => ({
+                  file_name: file.originalname,
+                  file_url: await uploadFileToS3(bucketName, `course_files/${shortid.generate()}-${file.originalname}`, file.buffer, file.mimetype),
+              })));
+          }
+      }
 
-        // Ensure `user_uploaded_courses` exists and update it
-        const updatedCourses = instructorDetails.user_uploaded_courses || [];
+      // ✅ Validate course data with Joi
+      const { error, value: courseData } = courseSchema.validate({
+          ...req.body,
+          course_videos: courseVideos,
+          course_image: courseImage,
+          course_lessons: courseLessons,
+          course_files: courseFiles,
+      }, { abortEarly: false });
 
-        // Avoid duplicate course entries
-        const courseExists = updatedCourses.some(course => course.course_id === course_id);
-        if (!courseExists) {
-            updatedCourses.push({
-                course_id,
-                course_name,
-                course_description,
-                course_price,
-                course_image,
-                course_videos,
-                course_lessons,
-                course_files,
-                course_published,
-            });
+      if (error) {
+          return res.status(400).json({ error: error.details.map(detail => detail.message) });
+      }
 
-            // Update the instructor's uploaded courses in the database
-            await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
-        }
+      // ✅ Generate unique course_id
+      const course_id = shortid.generate();
 
-        // Respond with the created course
-        res.status(201).json({
-            message: "Course added successfully!",
-            course: newCourse,
-        });
+      // ✅ Create the course object
+      const newCourse = {
+          course_id,
+          ...courseData,
+          course_instructor: user_id, // Assign the instructor
+      };
 
-    } catch (error) {
-        res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
-    }
-},
+      // ✅ Save the course to DynamoDB
+      const savedCourse = await CourseModel.createCourse(newCourse);
+      if (!savedCourse) {
+          return res.status(500).json({ error: "Failed to register course" });
+      }
+
+      // ✅ Update the instructor's uploaded courses
+      const user = await UserModel.getUserById(user_id);
+      if (!user) {
+          return res.status(404).json({ error: "Instructor not found" });
+      }
+
+      const updatedCourses = user.user_uploaded_courses || [];
+      updatedCourses.push({
+          course_id,
+          course_name: courseData.course_name,
+          course_description: courseData.course_description,
+          course_price: courseData.course_price,
+          course_published: courseData.course_published,
+      });
+
+      await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
+
+      return res.status(201).json({
+          message: "Course registered successfully!",
+          course: savedCourse,
+      });
+
+  } catch (error) {
+      console.error("Error registering course:", error);
+      return res.status(500).json({ error: "Error registering course", details: error.message });
+  }
+  },
+
 
   // Get all courses
   async getAllCourses(req, res) {
