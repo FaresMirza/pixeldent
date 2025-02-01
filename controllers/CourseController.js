@@ -2,71 +2,95 @@ const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
+const { uploadFileToS3 } = require("../services/s3Service");
+
 
 // Joi schema for course validation
 const courseSchema = Joi.object({
-  course_name: Joi.string().min(1),
-  course_description: Joi.string(),
-  course_price: Joi.number().positive(),
-  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())),
-  course_image: Joi.string().optional(),
-  course_videos: Joi.array().items(Joi.string()), // New addition
+  course_name: Joi.string().min(1).required(),
+  course_description: Joi.string().required(),
+  course_price: Joi.number().positive().required(),
+  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())).required(),
+  
+  // ✅ Image field is now a file instead of a URL
+  course_image: Joi.any().optional(),
+
+  // ✅ Videos field is now an array of files instead of URLs
+  course_videos: Joi.array().items(Joi.any()).optional(),
+
+  // ✅ Lessons now expect video files for `vid_url`
   course_lessons: Joi.array().items(
-    Joi.object({
-      subject: Joi.string(),
-      description: Joi.string(),
-      vid_url: Joi.string().uri(),
-    })
-  ),
+      Joi.object({
+          subject: Joi.string().required(),
+          description: Joi.string().required(),
+          vid_url: Joi.any().optional(), // Accepts file uploads
+      })
+  ).optional(),
+
   course_files: Joi.array().items(
-    Joi.object({
-      file_name: Joi.string(),
-      file_url: Joi.string().uri(),
-    })
-  ),
-  course_published: Joi.boolean(),
+      Joi.object({
+          file_name: Joi.string().required(),
+          file_url: Joi.string().uri().required(),
+      })
+  ).optional(),
+
+  course_published: Joi.boolean().required(),
 });
+
 
 
 module.exports = {
   // Register a new course
   async registerCourse(req, res) {
     try {
-        // Extract user_id and user_role from the token
         const { user_id, user_role } = req.user;
-
-        // Only allow "admin" or "super" users to register a course
         if (!["admin", "super"].includes(user_role)) {
             return res.status(403).json({ error: "Access denied. Only admins and super users can add courses." });
         }
 
-        // Validate request body using Joi schema
-        const { error } = courseSchema.validate(req.body);
-        if (error) {
-            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-        }
-
+        // Parse text fields from body
         let {
             course_name,
             course_description,
             course_price,
-            course_image,
-            course_videos,
-            course_lessons,
-            course_files,
             course_published,
+            course_lessons
         } = req.body;
 
-        // Generate a new course ID **ONCE**
         const course_id = shortid.generate();
 
-        // Fetch instructor details using the user_id from the token
+        // Upload course image if provided
+        let course_image = null;
+        if (req.files && req.files["course_image"]) {
+            const imageFile = req.files["course_image"][0];
+            course_image = await uploadFileToS3(imageFile.buffer, `course_images/${course_id}-${imageFile.originalname}`);
+        }
+
+        // Upload course videos if provided
+        let course_videos = [];
+        if (req.files && req.files["course_videos"]) {
+            for (let video of req.files["course_videos"]) {
+                const videoUrl = await uploadFileToS3(video.buffer, `course_videos/${course_id}-${video.originalname}`);
+                course_videos.push(videoUrl);
+            }
+        }
+
+        // Upload lesson videos if provided
+        if (course_lessons) {
+            course_lessons = JSON.parse(course_lessons); // Parse lessons from string
+            for (let lesson of course_lessons) {
+                if (lesson.vid_url && req.files[`lesson_${lesson.subject}`]) {
+                    const lessonFile = req.files[`lesson_${lesson.subject}`][0];
+                    lesson.vid_url = await uploadFileToS3(lessonFile.buffer, `lesson_videos/${course_id}-${lessonFile.originalname}`);
+                }
+            }
+        }
+
         const instructorDetails = await UserModel.getUserById(user_id);
         if (!instructorDetails) {
             return res.status(404).json({ error: "Instructor not found" });
         }
 
-        // Construct the new course object (Includes course_instructor)
         const newCourse = {
             course_id,
             course_name,
@@ -81,41 +105,12 @@ module.exports = {
             course_image,
             course_videos,
             course_lessons,
-            course_files,
             course_published,
         };
 
-        // Save the course to the database
         await CourseModel.createCourse(newCourse);
 
-        // Ensure `user_uploaded_courses` exists and update it **without including course_instructor**
-        const updatedCourses = instructorDetails.user_uploaded_courses || [];
-
-        // Avoid duplicate course entries in user_uploaded_courses
-        const courseExists = updatedCourses.some(course => course.course_id === course_id);
-        if (!courseExists) {
-            updatedCourses.push({
-                course_id,
-                course_name,
-                course_description,
-                course_price,
-                course_image,
-                course_videos,
-                course_lessons,
-                course_files,
-                course_published,
-            });
-
-            // Update the instructor's uploaded courses in the database
-            await UserModel.updateUserById(user_id, { user_uploaded_courses: updatedCourses });
-        }
-
-        // Respond with the created course
-        res.status(201).json({
-            message: "Course added successfully!",
-            course: newCourse,
-        });
-
+        res.status(201).json({ message: "Course added successfully!", course: newCourse });
     } catch (error) {
         res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
     }
