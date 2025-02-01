@@ -30,7 +30,12 @@ const courseSchema = Joi.object({
 
 module.exports = {
   // Register a new course
-  async registerCourse(req, res) {
+  const shortid = require("shortid");
+const Joi = require("joi");
+const UserModel = require("../models/UserModel");
+const CourseModel = require("../models/CourseModel");
+
+async registerCourse(req, res) {
     try {
         // Extract user_id and user_role from the token
         const { user_id, user_role } = req.user;
@@ -41,7 +46,7 @@ module.exports = {
         }
 
         // Validate request body using Joi schema
-        const { error } = courseSchema.validate(req.body);
+        const { error } = courseSchema.validate(req.body, { abortEarly: false });
         if (error) {
             return res.status(400).json({ error: error.details.map((detail) => detail.message) });
         }
@@ -57,7 +62,14 @@ module.exports = {
             course_published,
         } = req.body;
 
-        // Generate a new course ID **ONCE**
+        // Assign default values if missing
+        course_image = course_image || "https://example.com/default-course-image.jpg";
+        course_videos = Array.isArray(course_videos) ? course_videos : [];
+        course_lessons = Array.isArray(course_lessons) ? course_lessons : [];
+        course_files = Array.isArray(course_files) ? course_files : [];
+        course_published = course_published || false;
+
+        // Generate a new course ID
         const course_id = shortid.generate();
 
         // Fetch instructor details using the user_id from the token
@@ -66,7 +78,7 @@ module.exports = {
             return res.status(404).json({ error: "Instructor not found" });
         }
 
-        // Construct the new course object (Includes course_instructor)
+        // Construct the new course object
         const newCourse = {
             course_id,
             course_name,
@@ -74,7 +86,7 @@ module.exports = {
             course_price,
             course_instructor: {
                 user_id: instructorDetails.user_id,
-                user_name: instructorDetails.user_name,
+                user_name: instructorDetails.user_name, // Ensure this is included
                 user_email: instructorDetails.user_email,
                 user_role: instructorDetails.user_role
             },
@@ -88,10 +100,10 @@ module.exports = {
         // Save the course to the database
         await CourseModel.createCourse(newCourse);
 
-        // Ensure `user_uploaded_courses` exists and update it **without including course_instructor**
+        // Ensure `user_uploaded_courses` exists and update it
         const updatedCourses = instructorDetails.user_uploaded_courses || [];
 
-        // Avoid duplicate course entries in user_uploaded_courses
+        // Avoid duplicate course entries
         const courseExists = updatedCourses.some(course => course.course_id === course_id);
         if (!courseExists) {
             updatedCourses.push({
