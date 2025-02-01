@@ -54,10 +54,14 @@ module.exports = {
       if (req.files) {
           // Upload course image
           if (req.files.course_image) {
-              const imageFile = req.files.course_image[0];
-              courseImage = await uploadFileToS3(bucketName, `course_images/${shortid.generate()}-${imageFile.originalname}`, imageFile.buffer, imageFile.mimetype);
-          }
-
+            const imageFile = req.files.course_image[0];
+            courseImage = await uploadFileToS3(
+                process.env.AWS_S3_BUCKET,
+                `course_images/${shortid.generate()}-${imageFile.originalname}`,
+                imageFile.buffer,
+                imageFile.mimetype
+            );
+        }
           // Upload course videos
           if (req.files.course_videos) {
               courseVideos = await Promise.all(req.files.course_videos.map(async (file) => {
