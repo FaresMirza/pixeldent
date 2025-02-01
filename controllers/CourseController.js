@@ -49,24 +49,23 @@ module.exports = {
             return res.status(403).json({ error: "Access denied. Only admins and super users can add courses." });
         }
 
-        const { error } = courseSchema.validate(req.body);
-        if (error) {
-            return res.status(400).json({ error: error.details.map((detail) => detail.message) });
-        }
+        // ✅ Explicitly parse form-data fields
+        const course_name = req.body.course_name?.trim();
+        const course_description = req.body.course_description?.trim();
+        const course_price = parseFloat(req.body.course_price);
+        const course_published = req.body.course_published === "true";
 
-        let {
-            course_name,
-            course_description,
-            course_price,
-            course_published
-        } = req.body;
+        // ✅ Validate required fields manually
+        if (!course_name) {
+            return res.status(400).json({ error: ["\"course_name\" is required"] });
+        }
 
         // Generate a unique course ID
         const course_id = shortid.generate();
 
-        // Check if files were uploaded
-        const course_image = req.files["course_image"] ? req.files["course_image"][0].location : null;
-        const course_videos = req.files["course_videos"] ? req.files["course_videos"].map(file => file.location) : [];
+        // ✅ Ensure file uploads are handled correctly
+        const course_image = req.files?.course_image ? req.files.course_image[0].path : null;
+        const course_videos = req.files?.course_videos ? req.files.course_videos.map(file => file.path) : [];
 
         // Fetch instructor details
         const instructorDetails = await UserModel.getUserById(user_id);
@@ -93,7 +92,7 @@ module.exports = {
         // Save the course in DynamoDB
         await CourseModel.createCourse(newCourse);
 
-        // Update the instructor's uploaded courses (excluding course_instructor)
+        // Update instructor's uploaded courses (excluding course_instructor)
         const updatedCourses = instructorDetails.user_uploaded_courses || [];
         updatedCourses.push({
             course_id,
@@ -116,7 +115,6 @@ module.exports = {
         res.status(error.message.includes("not found") ? 400 : 500).json({ error: error.message });
     }
 },
-
   // Get all courses
   async getAllCourses(req, res) {
     try {

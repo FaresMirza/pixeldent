@@ -11,7 +11,6 @@ const router = express.Router();
 const uploadFields = upload.fields([
     { name: "course_image", maxCount: 1 }, // Upload course image
     { name: "course_videos", maxCount: 5 }, // Upload up to 5 videos
-    { name: "lesson_*", maxCount: 1 } // Lesson videos dynamically
 ]);
 
 router.get("/courses", verifyToken,verifyRole(["admin"]),uploadFields, CourseController.getAllCourses)
