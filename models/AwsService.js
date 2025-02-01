@@ -17,7 +17,7 @@ async function uploadFileToS3(fileBuffer, fileName, fileMimeType) {
 
         await s3.send(new PutObjectCommand(uploadParams));
 
-        return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION_s3}.amazonaws.com/${uploadParams.Key}`;
+        return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION_S3}.amazonaws.com/${uploadParams.Key}`;
     } catch (error) {
         throw new Error(`Error uploading file to S3: ${error.message}`);
     }
