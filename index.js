@@ -6,8 +6,8 @@ const AdminRoutes = require("./routes/AdminRoutes")
 const AuthRoutes = require("./routes/AuthRoutes")
 
 const app = express();
-app.use(express.json({ limit: "50mb" })); 
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json()); // Parse JSON bodies
+
 // Define routes
 app.use("/pixeldent/user", UserRoutes); // Prefix for user routes
 app.use("/pixeldent/superadmin", SuperAdminRoutes)
