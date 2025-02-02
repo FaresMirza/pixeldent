@@ -20,7 +20,7 @@ module.exports = {
                 Body: Readable.from(fileBuffer),
                 ContentType: fileMimeType,
                 ContentLength: fileBuffer.length, // ✅ Fix for "undefined" header issue
-                ACL: "public-read"
+             
             };
 
             await s3.send(new PutObjectCommand(uploadParams));
