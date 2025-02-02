@@ -19,7 +19,8 @@ module.exports = {
                 Key: key,
                 Body: Readable.from(fileBuffer),
                 ContentType: fileMimeType,
-                ContentLength: fileBuffer.length, // ✅ Fix for "undefined" header issue
+                ContentLength: fileBuffer.length,
+                ACL: "public-read" // ✅ Fix for "undefined" header issue
              
             };
 
