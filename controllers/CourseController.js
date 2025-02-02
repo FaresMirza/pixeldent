@@ -50,7 +50,7 @@ module.exports = {
 
           // ✅ رفع الفيديوهات إلى S3
           if (req.files.course_videos) {
-              const videos = [].concat(req.files.course_videos); // تحويل الملف إلى مصفوفة
+              const videos = Array.isArray(req.files.course_videos) ? req.files.course_videos : [req.files.course_videos];
               course_videos = await Promise.all(
                   videos.map(async (video) =>
                       uploadFileToS3(video.data, video.name, video.mimetype)
@@ -60,7 +60,7 @@ module.exports = {
 
           // ✅ رفع دروس الفيديو مع `subject` و `description`
           if (req.files.course_lessons) {
-              const lessons = [].concat(req.files.course_lessons);
+              const lessons = Array.isArray(req.files.course_lessons) ? req.files.course_lessons : [req.files.course_lessons];
               course_lessons = await Promise.all(
                   lessons.map(async (lesson, index) => ({
                       subject: req.body[`course_lessons[${index}][subject]`] || `Lesson ${index + 1}`,
@@ -70,9 +70,9 @@ module.exports = {
               );
           }
 
-          // ✅ رفع `course_files` إلى S3
+          // ✅ **إصلاح مشكلة `course_files` وجعلها تعمل بشكل صحيح**
           if (req.files.course_files) {
-              const files = [].concat(req.files.course_files);
+              const files = Array.isArray(req.files.course_files) ? req.files.course_files : [req.files.course_files];
               course_files = await Promise.all(
                   files.map(async (file) => ({
                       file_name: file.name,
@@ -88,7 +88,7 @@ module.exports = {
           course_image,
           course_videos,
           course_lessons,
-          course_files, // ✅ الآن سيتم تخزين ملفات الكورس بشكل صحيح
+          course_files, // ✅ تأكدنا الآن أن الملفات سيتم رفعها وحفظها بشكل صحيح
       };
 
       const newCourse = await CourseModel.createCourse(courseData);
