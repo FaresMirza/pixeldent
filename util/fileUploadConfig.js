@@ -4,7 +4,7 @@ require("dotenv").config();
 
 // ✅ إعداد S3 Client
 const s3 = new S3Client({
-    region: process.env.AWS_REGION,
+    region: process.env.AWS_REGION_S3,
 
 });
 
@@ -17,7 +17,7 @@ async function uploadFileToS3(fileBuffer, fileName, fileMimeType) {
         Body: fileBuffer,
         ContentType: fileMimeType
     }));
-    return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION_S3}.amazonaws.com/${key}`;
 }
 
 module.exports = uploadFileToS3;
