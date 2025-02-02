@@ -18,16 +18,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // router.use(express.raw({ type: "*/*", limit: "10mb" }));
 
 // S3 Upload Route
-router.post(
-    "/courses",
-    upload.fields([
-        { name: "course_image", maxCount: 1 }, // ✅ Now supporting course image
-        { name: "course_videos", maxCount: 5 },  
-        { name: "course_lessons", maxCount: 10 }, 
-        { name: "course_files", maxCount: 10 }
-    ]),
-    CourseController.registerCourse
-);
+router.post("/courses", upload.any(), CourseController.registerCourse);
 router.get("/courses", verifyToken, verifyRole(["admin"]), CourseController.getAllCourses);
 router.get("/admincourses", verifyToken, verifyRole(["admin"]), CourseController.getAllCoursesForAdmin);
 router.get("/books", verifyToken, verifyRole(["admin"]), BookController.getAllBooks);
