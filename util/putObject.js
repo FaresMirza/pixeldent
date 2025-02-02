@@ -9,7 +9,7 @@ exports.putObject = async (file, fileName) => {
             Bucket: process.env.AWS_S3_BUCKET,
             Key: fileName,
             Body: file,
-            ContentType: "image/jpg,jpeg,png" // ✅ Fixed ContentType (must be a single MIME type)
+            ContentType: "image/jpg" // ✅ Fixed ContentType (must be a single MIME type)
         };
 
         const command = new PutObjectCommand(params);
