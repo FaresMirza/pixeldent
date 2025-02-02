@@ -1,17 +1,17 @@
 const { PutObjectCommand } = require("@aws-sdk/client-s3");
 const { s3Client } = require("./s3-credentials");
-const mime = require("mime-types"); // ✅ Import mime-types to detect correct Content-Type
+const mime = require("mime-types");
 
-exports.putObject = async (file, fileName) => {
+exports.putObject = async (file, fileName, fileMimeType) => {
     try {
         // ✅ Ensure correct MIME type
-        const contentType = mime.lookup(fileName) || "application/octet-stream";
+        const contentType = fileMimeType || mime.lookup(fileName) || "application/octet-stream";
 
         const params = {
             Bucket: process.env.AWS_S3_BUCKET,
             Key: fileName,
             Body: file,
-            ContentType: contentType, // ✅ Auto-detect correct type
+            ContentType: contentType, // ✅ Set correct type
         };
 
         const command = new PutObjectCommand(params);
