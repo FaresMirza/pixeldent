@@ -39,14 +39,15 @@ async postFile(req,res) {
         return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const fileName = `images/${Date.now()}.jpg`; // ✅ Generate unique name
-    const fileMimeType = req.headers["content-type"] || "application/octet-stream"; // ✅ Get MIME type
+    const fileName = `images/${Date.now()}.jpg`; // ✅ Generate unique file name
+    const fileMimeType = req.headers["content-type"] || "application/octet-stream"; // ✅ Detect MIME type
 
+    // ✅ Directly upload the raw binary data
     const { url, key } = await putObject(req.body, fileName, fileMimeType);
 
     res.status(200).json({ message: "File uploaded successfully", fileUrl: url, fileKey: key });
 } catch (error) {
-    console.error("Upload Error:", error);
+    console.error("❌ Upload Error:", error);
     res.status(500).json({ error: "Error Uploading file", details: error.message });
 }
 },
