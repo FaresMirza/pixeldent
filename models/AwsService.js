@@ -3,7 +3,8 @@ require("dotenv").config();
 
 // ✅ إنشاء S3 Client
 const s3 = new S3Client({
-    region: process.env.AWS_REGION_S3
+    region: process.env.AWS_REGION_S3,
+ 
 });
 
 module.exports = {
@@ -13,7 +14,7 @@ module.exports = {
         await s3.send(new PutObjectCommand({
             Bucket: process.env.AWS_S3_BUCKET,
             Key: key,
-            Body: Buffer.from(fileBuffer), // ✅ تأكد من إرسال البيانات بدون تعديل
+            Body: fileBuffer, // ✅ `multer` يرسل الملفات كـ `buffer` جاهزة
             ContentType: fileMimeType
         }));
 

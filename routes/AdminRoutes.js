@@ -5,19 +5,17 @@ const CourseController = require("../controllers/CourseController")
 const fileUpload = require("express-fileupload");
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 const router = express.Router();
-router.use(fileUpload({
-    limits: { fileSize: 10 * 1024 * 1024 }, // ✅ السماح برفع ملفات حتى 10MB
-    useTempFiles: false, // ✅ تجنب تخزين الملفات مؤقتًا
-    preserveExtension: true, // ✅ الحفاظ على امتداد الملف الأصلي
-    abortOnLimit: true
-}));
+const multer = require("multer");
+
+
 
 
 // S3 things
+const upload = multer(); // ✅ إعداد `multer` لاستقبال الملفات بدون تعديل
 
 
 
-router.post("/upload", CourseController.postToS3Bucket);
+router.post("/upload", upload.single("file"), CourseController.postToS3Bucket);
 router.get("/courses", verifyToken,verifyRole(["admin"]), CourseController.getAllCourses)
 router.get("/admincourses", verifyToken,verifyRole(["admin"]), CourseController.getAllCoursesForAdmin)
 // router.post("/courses",verifyToken,verifyRole(["admin"]),  CourseController.registerCourse)

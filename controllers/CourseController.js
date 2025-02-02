@@ -37,15 +37,31 @@ module.exports = {
  
   async postToS3Bucket(req, res) {
     try {
-      if (!req.files || !req.files.file) return res.status(400).json({ error: "لم يتم تحميل أي ملف." });
+        if (!req.file) {
+            return res.status(400).json({ error: "لم يتم تحميل أي ملف." });
+        }
 
-      const file = req.files.file;
-      const fileUrl = await uploadFileToS3(file.data, file.name, file.mimetype);
+        const uploadedFile = req.file;
 
-      res.json({ message: "تم رفع الملف بنجاح!", fileUrl });
-  } catch (error) {
-      res.status(500).json({ error: "خطأ أثناء رفع الملف", details: error.message });
-  }
+        if (uploadedFile.size === 0) {
+            throw new Error("الملف المرفوع فارغ.");
+        }
+
+        // ✅ رفع الملف بدون تعديل على حجمه أو بياناته الأصلية
+        const fileUrl = await uploadFileToS3(
+            uploadedFile.buffer,
+            uploadedFile.originalname,
+            uploadedFile.mimetype
+        );
+
+        return res.status(200).json({
+            message: "تم رفع الملف بنجاح!",
+            fileUrl: fileUrl
+        });
+
+    } catch (error) {
+        return res.status(500).json({ error: "خطأ أثناء رفع الملف", details: error.message });
+    }
 },
 
   // Get all courses
