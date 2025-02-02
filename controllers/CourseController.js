@@ -3,6 +3,8 @@ const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
 const { v4: uuidv4 } = require("uuid"); // ✅ Import UUID to generate unique file names
+const uploadFileToS3 = require("../util/fileUploadConfig");
+
 
 
 // Joi schema for course validation
@@ -34,37 +36,49 @@ module.exports = {
   // Register a new course
   async registerCourse(req, res){
     try {
-      const { error, value } = courseSchema.validate(req.body, { allowUnknown: true });
-      if (error) {
-          return res.status(400).json({ error: error.details.map(detail => detail.message) });
+      const { user_id, user_role } = req.user;
+      if (user_role !== "admin" && user_role !== "super") {
+          return res.status(403).json({ error: "Unauthorized! Only admins can add courses." });
       }
 
-      let { course_videos, course_lessons, course_files, course_image } = req.body;
+      let course_image, course_videos = [], course_lessons = [], course_files = [];
 
-      if (req.files?.course_image) {
-          course_image = req.files.course_image[0].location;
-      }
+      if (req.files) {
+          if (req.files.course_image) {
+              course_image = await uploadFileToS3(req.files.course_image.data, req.files.course_image.name, req.files.course_image.mimetype);
+          }
 
-      if (req.files?.course_videos) {
-          course_videos = req.files.course_videos.map(video => video.location);
-      }
+          if (req.files.course_videos) {
+              course_videos = await Promise.all(
+                  [].concat(req.files.course_videos).map(async (video) =>
+                      uploadFileToS3(video.data, video.name, video.mimetype)
+                  )
+              );
+          }
 
-      if (req.files?.course_lessons) {
-          course_lessons = req.files.course_lessons.map((video, index) => ({
-              subject: req.body.course_lessons?.[index]?.subject || `Lesson ${index + 1}`,
-              description: req.body.course_lessons?.[index]?.description || "No description",
-              vid_url: video.location,
-          }));
-      }
+          if (req.files.course_lessons) {
+              course_lessons = await Promise.all(
+                  [].concat(req.files.course_lessons).map(async (lesson, index) => ({
+                      subject: req.body.course_lessons?.[index]?.subject || `Lesson ${index + 1}`,
+                      description: req.body.course_lessons?.[index]?.description || "No description",
+                      vid_url: await uploadFileToS3(lesson.data, lesson.name, lesson.mimetype)
+                  }))
+              );
+          }
 
-      if (req.files?.course_files) {
-          course_files = req.files.course_files.map(file => ({
-              file_name: file.originalname,
-              file_url: file.location,
-          }));
+          if (req.files.course_files) {
+              course_files = await Promise.all(
+                  [].concat(req.files.course_files).map(async (file) => ({
+                      file_name: file.name,
+                      file_url: await uploadFileToS3(file.data, file.name, file.mimetype)
+                  }))
+              );
+          }
       }
 
       const courseData = {
+          course_id: `course-${Date.now()}`,
+          created_by: user_id,
           ...req.body,
           course_image,
           course_videos,
@@ -76,7 +90,8 @@ module.exports = {
       res.status(201).json({ message: "Course registered successfully", course: newCourse });
 
   } catch (error) {
-      res.status(500).json({ error: "Error registering course", details: error.message });
+      console.error("❌ Internal Server Error:", error);
+      res.status(500).json({ error: "Internal Server Error", details: error.message });
   }
   },
   

@@ -3,17 +3,12 @@ const UserController = require("../controllers/UserController");
 const BookController = require("../controllers/BookController");
 const CourseController = require("../controllers/CourseController");
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
-const upload = require("../util/multerConfig");
 
 const router = express.Router();
 
 
 
-router.post(
-    "/courses",
-    upload.any(),
-    CourseController.registerCourse
-);
+router.post("/courses",CourseController.registerCourse);
 
 router.get("/courses", verifyToken, verifyRole(["admin"]), CourseController.getAllCourses);
 router.get("/admincourses", verifyToken, verifyRole(["admin"]), CourseController.getAllCoursesForAdmin);
