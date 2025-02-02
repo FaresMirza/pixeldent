@@ -33,28 +33,82 @@ const courseSchema = Joi.object({
 
 module.exports = {
   // Register a new course
-async postFile(req,res) {
+async registerCourse(req,res) {
   try {
-    if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+    const { error, value } = courseSchema.validate(req.body, { allowUnknown: true });
+    if (error) {
+        return res.status(400).json({ error: error.details.map(detail => detail.message) });
     }
 
-    const file = req.file;
-    const fileName = `uploads/${Date.now()}-${file.originalname}`; // ✅ Preserve original file name
-    const fileMimeType = file.mimetype; // ✅ Detect file type automatically
+    let { course_videos, course_lessons, course_files, course_image } = req.body;
 
-    // ✅ Upload file to S3
-    const { url, key } = await putObject(file.buffer, fileName, fileMimeType);
+    // ✅ Upload course image to S3
+    if (req.files && req.files.course_image) {
+        const image = req.files.course_image;
+        const fileName = `course-images/${Date.now()}-${image.originalname}`;
+        const { url } = await putObject(image.buffer, fileName, image.mimetype);
+        course_image = url; 
+    }
 
-    res.status(200).json({
-        message: "File uploaded successfully",
-        fileUrl: url,
-        fileKey: key
-    });
+    // ✅ Upload course videos to S3
+    if (req.files && req.files.course_videos) {
+        const uploadedVideos = await Promise.all(
+            req.files.course_videos.map(async (video) => {
+                const fileName = `videos/${Date.now()}-${video.originalname}`;
+                const { url } = await putObject(video.buffer, fileName, video.mimetype);
+                return url;
+            })
+        );
+        course_videos = uploadedVideos;
+    }
+
+    // ✅ Upload lesson videos **with subject & description**
+    if (req.files && req.files.course_lessons) {
+        course_lessons = await Promise.all(
+            req.files.course_lessons.map(async (video, index) => {
+                const subject = req.body.course_lessons[index]?.subject || `Lesson ${index + 1}`;
+                const description = req.body.course_lessons[index]?.description || "No description provided";
+
+                const fileName = `lesson-videos/${Date.now()}-${video.originalname}`;
+                const { url } = await putObject(video.buffer, fileName, video.mimetype);
+
+                return {
+                    subject,
+                    description,
+                    vid_url: url, // ✅ Store S3 URL
+                };
+            })
+        );
+    }
+
+    // ✅ Upload course files to S3
+    if (req.files && req.files.course_files) {
+        const uploadedFiles = await Promise.all(
+            req.files.course_files.map(async (file) => {
+                const fileName = `course-files/${Date.now()}-${file.originalname}`;
+                const { url } = await putObject(file.buffer, fileName, file.mimetype);
+                return { file_name: file.originalname, file_url: url };
+            })
+        );
+        course_files = uploadedFiles;
+    }
+
+    // ✅ Create course object
+    const courseData = {
+        ...req.body,
+        course_image,
+        course_videos,
+        course_lessons, // ✅ Now includes subject & description
+        course_files,
+    };
+
+    // ✅ Save course to DB
+    const newCourse = await CourseModel.createCourse(courseData);
+    res.status(201).json({ message: "Course registered successfully", course: newCourse });
 
 } catch (error) {
-    console.error("❌ Upload Error:", error);
-    res.status(500).json({ error: "Error Uploading file", details: error.message });
+    console.error("❌ Error registering course:", error);
+    res.status(500).json({ error: "Error registering course", details: error.message });
 }
 },
  
