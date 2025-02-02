@@ -1,12 +1,10 @@
 const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
-const { uploadFileToS3 } = require("../models/AwsService");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
 const multer = require("multer");
+const { upload, uploadFileToS3 } = require("../models/AwsService");
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
 
 
 // Joi schema for course validation
@@ -46,25 +44,15 @@ module.exports = {
                 return res.status(400).json({ error: "No file uploaded" });
             }
 
-            // ✅ Extract file metadata from Multer
-            const fileBuffer = req.file.buffer;
-            const fileName = req.file.originalname;
-            const fileMimeType = req.file.mimetype;  // ✅ Extracted from Multer
-
-            console.log("File Name:", fileName);
-            console.log("File MIME Type:", fileMimeType);
-            console.log("File Size:", req.file.size);
-
-            if (!fileBuffer || fileBuffer.length === 0) {
-                throw new Error("Uploaded file is empty.");
-            }
-
-            // Upload file to S3
-            const fileUrl = await uploadFileToS3(fileBuffer, fileName, fileMimeType);
+            // ✅ Log upload details
+            console.log("✅ File Uploaded to S3:");
+            console.log("File Name:", req.file.originalname);
+            console.log("File Size (bytes):", req.file.size);
+            console.log("S3 URL:", req.file.location);
 
             return res.status(200).json({
                 message: "File uploaded successfully",
-                fileUrl: fileUrl
+                fileUrl: req.file.location
             });
 
         } catch (error) {
