@@ -1,5 +1,4 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-require("dotenv").config();
 
 // ✅ إنشاء S3 Client
 const s3 = new S3Client({
@@ -8,7 +7,7 @@ const s3 = new S3Client({
 });
 
 /**
- * ✅ أبسط طريقة لرفع ملف إلى S3
+ * ✅ رفع الملف إلى S3 بدون تخريبه
  */
 async function uploadFileToS3(fileBuffer, fileName, fileMimeType) {
     const key = `uploads/${Date.now()}-${fileName}`;
@@ -16,7 +15,7 @@ async function uploadFileToS3(fileBuffer, fileName, fileMimeType) {
     await s3.send(new PutObjectCommand({
         Bucket: process.env.AWS_S3_BUCKET,
         Key: key,
-        Body: fileBuffer,
+        Body: Buffer.from(fileBuffer), // ✅ تأكد من إرسال البيانات بدون تعديل
         ContentType: fileMimeType
     }));
 
