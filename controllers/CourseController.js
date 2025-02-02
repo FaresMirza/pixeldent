@@ -39,40 +39,42 @@ module.exports = {
       let course_image, course_videos = [], course_lessons = [], course_files = [];
 
       if (req.files) {
+          // ✅ رفع صورة الكورس إلى S3
           if (req.files.course_image) {
-              course_image = await uploadFileToS3(req.files.course_image.data, req.files.course_image.name, req.files.course_image.mimetype);
+              course_image = await uploadFileToS3(
+                  req.files.course_image.data,
+                  req.files.course_image.name,
+                  req.files.course_image.mimetype
+              );
           }
 
+          // ✅ رفع الفيديوهات إلى S3
           if (req.files.course_videos) {
-              const videos = req.files.course_videos;
-              const course_videos_array = Array.isArray(videos) ? videos : [videos];
-
+              const videos = [].concat(req.files.course_videos); // تحويل الملف إلى مصفوفة
               course_videos = await Promise.all(
-                  course_videos_array.map(async (video) =>
+                  videos.map(async (video) =>
                       uploadFileToS3(video.data, video.name, video.mimetype)
                   )
               );
           }
 
+          // ✅ رفع دروس الفيديو مع `subject` و `description`
           if (req.files.course_lessons) {
-              const lessons = req.files.course_lessons;
-              const course_lessons_array = Array.isArray(lessons) ? lessons : [lessons];
-
+              const lessons = [].concat(req.files.course_lessons);
               course_lessons = await Promise.all(
-                  course_lessons_array.map(async (lesson, index) => ({
-                      subject: req.body.course_lessons?.[index]?.subject || `Lesson ${index + 1}`,
-                      description: req.body.course_lessons?.[index]?.description || "No description",
+                  lessons.map(async (lesson, index) => ({
+                      subject: req.body[`course_lessons[${index}][subject]`] || `Lesson ${index + 1}`,
+                      description: req.body[`course_lessons[${index}][description]`] || "No description",
                       vid_url: await uploadFileToS3(lesson.data, lesson.name, lesson.mimetype)
                   }))
               );
           }
 
+          // ✅ رفع `course_files` إلى S3
           if (req.files.course_files) {
-              const files = req.files.course_files;
-              const course_files_array = Array.isArray(files) ? files : [files];
-
+              const files = [].concat(req.files.course_files);
               course_files = await Promise.all(
-                  course_files_array.map(async (file) => ({
+                  files.map(async (file) => ({
                       file_name: file.name,
                       file_url: await uploadFileToS3(file.data, file.name, file.mimetype)
                   }))
@@ -86,7 +88,7 @@ module.exports = {
           course_image,
           course_videos,
           course_lessons,
-          course_files,
+          course_files, // ✅ الآن سيتم تخزين ملفات الكورس بشكل صحيح
       };
 
       const newCourse = await CourseModel.createCourse(courseData);
