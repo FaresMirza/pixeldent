@@ -36,10 +36,10 @@ module.exports = {
   // Register a new course
   async registerCourse(req, res){
     try {
-      const { user_id, user_role } = req.user;
-      if (user_role !== "admin" && user_role !== "super") {
-          return res.status(403).json({ error: "Unauthorized! Only admins can add courses." });
-      }
+      // const { user_id, user_role } = req.user;
+      // if (user_role !== "admin" && user_role !== "super") {
+      //     return res.status(403).json({ error: "Unauthorized! Only admins can add courses." });
+      // }
 
       let course_image, course_videos = [], course_lessons = [], course_files = [];
 
