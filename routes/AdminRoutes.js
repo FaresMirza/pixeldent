@@ -13,7 +13,7 @@ const router = express.Router();
 // S3 things
 
 
-// router.post("/upload", CourseController.postToS3Bucket);
+router.post("/upload",fileUpload(),CourseController.postFile);
 router.get("/courses", verifyToken,verifyRole(["admin"]), CourseController.getAllCourses)
 router.get("/admincourses", verifyToken,verifyRole(["admin"]), CourseController.getAllCoursesForAdmin)
 // router.post("/courses",verifyToken,verifyRole(["admin"]),  CourseController.registerCourse)

@@ -2,7 +2,8 @@ const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
-
+const { putObject } = require("../util/putObject");
+const { v4 } = require("uuid");
 
 
 // Joi schema for course validation
@@ -32,7 +33,17 @@ const courseSchema = Joi.object({
 
 module.exports = {
   // Register a new course
+async postFile(req,res) {
+try{
+const {file} = req.files 
+const fileName = "images/"+v4()
 
+const {url,key} = await putObject(file.data,fileName)
+}catch(error){
+  res.status(500).json({ error: "Error Uploading file", details: error.message });
+
+}
+},
  
   
 
