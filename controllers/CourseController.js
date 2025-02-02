@@ -39,7 +39,7 @@ async postFile(req,res) {
         return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const fileName = `images/${Date.now()}.jpg`; // ✅ Generate unique file name
+    const fileName = `images/${Date.now()}`; // ✅ Generate unique file name
     const fileMimeType = req.headers["content-type"] || "application/octet-stream"; // ✅ Detect MIME type
 
     // ✅ Directly upload the raw binary data
