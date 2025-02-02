@@ -2,7 +2,6 @@ const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
-const { uploadFileToS3 } = require("../models/AwsService");
 
 
 
@@ -35,34 +34,7 @@ module.exports = {
   // Register a new course
 
  
-  async postToS3Bucket(req, res) {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: "لم يتم تحميل أي ملف." });
-        }
-
-        const uploadedFile = req.file;
-
-        if (uploadedFile.size === 0) {
-            throw new Error("الملف المرفوع فارغ.");
-        }
-
-        // ✅ رفع الملف بدون تعديل لحجمه
-        const fileUrl = await uploadFileToS3(
-            uploadedFile.buffer,
-            uploadedFile.originalname,
-            uploadedFile.mimetype
-        );
-
-        return res.status(200).json({
-            message: "تم رفع الملف بنجاح!",
-            fileUrl: fileUrl
-        });
-
-    } catch (error) {
-        return res.status(500).json({ error: "خطأ أثناء رفع الملف", details: error.message });
-    }
-},
+  
 
   // Get all courses
   async getAllCourses(req, res) {

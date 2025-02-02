@@ -4,18 +4,16 @@ const BookController = require("../controllers/BookController")
 const CourseController = require("../controllers/CourseController")
 const fileUpload = require("express-fileupload");
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
+
 const router = express.Router();
-const multer = require("multer");
 
 
 
 
 // S3 things
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage }); 
 
 
-router.post("/upload", upload.single("file"), CourseController.postToS3Bucket);
+// router.post("/upload", CourseController.postToS3Bucket);
 router.get("/courses", verifyToken,verifyRole(["admin"]), CourseController.getAllCourses)
 router.get("/admincourses", verifyToken,verifyRole(["admin"]), CourseController.getAllCoursesForAdmin)
 // router.post("/courses",verifyToken,verifyRole(["admin"]),  CourseController.registerCourse)
