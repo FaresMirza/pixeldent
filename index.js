@@ -12,6 +12,7 @@ app.use(express.json()); // Parse JSON bodies
 app.use(fileUpload()); // ✅ تمكين رفع الملفات
 app.use(express.urlencoded({ extended: true }));
 
+
 // Define routes
 app.use("/pixeldent/user", UserRoutes); // Prefix for user routes
 app.use("/pixeldent/superadmin", SuperAdminRoutes)

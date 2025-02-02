@@ -36,11 +36,6 @@ module.exports = {
   // Register a new course
   async registerCourse(req, res){
     try {
-      // const { user_id, user_role } = req.user;
-      // if (user_role !== "admin" && user_role !== "super") {
-      //     return res.status(403).json({ error: "Unauthorized! Only admins can add courses." });
-      // }
-
       let course_image, course_videos = [], course_lessons = [], course_files = [];
 
       if (req.files) {
@@ -49,16 +44,22 @@ module.exports = {
           }
 
           if (req.files.course_videos) {
+              const videos = req.files.course_videos;
+              const course_videos_array = Array.isArray(videos) ? videos : [videos];
+
               course_videos = await Promise.all(
-                  [].concat(req.files.course_videos).map(async (video) =>
+                  course_videos_array.map(async (video) =>
                       uploadFileToS3(video.data, video.name, video.mimetype)
                   )
               );
           }
 
           if (req.files.course_lessons) {
+              const lessons = req.files.course_lessons;
+              const course_lessons_array = Array.isArray(lessons) ? lessons : [lessons];
+
               course_lessons = await Promise.all(
-                  [].concat(req.files.course_lessons).map(async (lesson, index) => ({
+                  course_lessons_array.map(async (lesson, index) => ({
                       subject: req.body.course_lessons?.[index]?.subject || `Lesson ${index + 1}`,
                       description: req.body.course_lessons?.[index]?.description || "No description",
                       vid_url: await uploadFileToS3(lesson.data, lesson.name, lesson.mimetype)
@@ -67,8 +68,11 @@ module.exports = {
           }
 
           if (req.files.course_files) {
+              const files = req.files.course_files;
+              const course_files_array = Array.isArray(files) ? files : [files];
+
               course_files = await Promise.all(
-                  [].concat(req.files.course_files).map(async (file) => ({
+                  course_files_array.map(async (file) => ({
                       file_name: file.name,
                       file_url: await uploadFileToS3(file.data, file.name, file.mimetype)
                   }))
