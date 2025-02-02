@@ -5,7 +5,12 @@ const CourseController = require("../controllers/CourseController")
 const fileUpload = require("express-fileupload");
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 const router = express.Router();
-router.use(fileUpload());
+router.use(fileUpload({
+    limits: { fileSize: 10 * 1024 * 1024 }, // ✅ السماح برفع ملفات حتى 10MB
+    useTempFiles: false, // ✅ تجنب تخزين الملفات مؤقتًا
+    preserveExtension: true, // ✅ الحفاظ على امتداد الملف الأصلي
+    abortOnLimit: true
+}));
 
 
 // S3 things
