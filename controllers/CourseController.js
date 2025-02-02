@@ -3,7 +3,7 @@ const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
 const fileUpload = require("express-fileupload");
-const upload = require("../models/AwsService");
+const { uploadFileToS3 } = require("../models/AwsService");
 
 
 
@@ -34,32 +34,39 @@ const courseSchema = Joi.object({
 
 module.exports = {
   // Register a new course
-  async postToS3Bucket(req, res) {
-    upload.single("file")(req, res, async (err) => {
-        try {
-            if (err) {
-                return res.status(400).json({ error: "Error processing file", details: err.message });
-            }
-            if (!req.file) {
-                return res.status(400).json({ error: "No file uploaded" });
-            }
 
-            // ✅ Log upload details
-            console.log("✅ File Uploaded to S3:");
-            console.log("File Name:", req.file.originalname);
-            console.log("File Size (bytes):", req.file.size);
-            console.log("S3 URL:", req.file.location);
-
-            return res.status(200).json({
-                message: "File uploaded successfully",
-                fileUrl: req.file.location
-            });
-
-        } catch (error) {
-            return res.status(500).json({ error: "Error uploading file", details: error.message });
-        }
-    });
-},
+ 
+      async postToS3Bucket(req, res) {
+          try {
+              // ✅ Ensure a file is uploaded
+              if (!req.files || !req.files.file) {
+                  return res.status(400).json({ error: "No file uploaded" });
+              }
+  
+              const uploadedFile = req.files.file;
+  
+              // ✅ Log file details
+              console.log("✅ File Received:");
+              console.log("File Name:", uploadedFile.name);
+              console.log("File MIME Type:", uploadedFile.mimetype);
+              console.log("File Size (bytes):", uploadedFile.size);
+  
+              if (uploadedFile.size === 0) {
+                  throw new Error("Uploaded file is empty.");
+              }
+  
+              // ✅ Upload to S3
+              const fileUrl = await uploadFileToS3(uploadedFile.data, uploadedFile.name, uploadedFile.mimetype);
+  
+              return res.status(200).json({
+                  message: "File uploaded successfully",
+                  fileUrl: fileUrl
+              });
+  
+          } catch (error) {
+              return res.status(500).json({ error: "Error uploading file", details: error.message });
+          }
+      },
 
   // Get all courses
   async getAllCourses(req, res) {
