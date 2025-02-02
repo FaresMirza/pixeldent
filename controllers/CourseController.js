@@ -37,25 +37,22 @@ module.exports = {
  
   async postToS3Bucket(req, res) {
     try {
-        // ✅ Ensure a file is uploaded
         if (!req.files || !req.files.file) {
             return res.status(400).json({ error: "No file uploaded" });
         }
 
-        const uploadedFile = req.files.file; // `file` is the key in form-data
-
-        // ✅ Log file details
-        console.log("✅ File Received:");
-        console.log("File Name:", uploadedFile.name);
-        console.log("File MIME Type:", uploadedFile.mimetype);
-        console.log("File Size (bytes):", uploadedFile.size);
+        const uploadedFile = req.files.file;
 
         if (uploadedFile.size === 0) {
             throw new Error("Uploaded file is empty.");
         }
 
-        // ✅ Upload file to S3
-        const fileUrl = await uploadFileToS3(uploadedFile.data, uploadedFile.name, uploadedFile.mimetype);
+        // ✅ Upload while keeping file data unchanged
+        const fileUrl = await uploadFileToS3(
+            Buffer.from(uploadedFile.data), 
+            uploadedFile.name,
+            uploadedFile.mimetype
+        );
 
         return res.status(200).json({
             message: "File uploaded successfully",
@@ -63,7 +60,6 @@ module.exports = {
         });
 
     } catch (error) {
-        console.error("❌ Error uploading file:", error);
         return res.status(500).json({ error: "Error uploading file", details: error.message });
     }
 },
