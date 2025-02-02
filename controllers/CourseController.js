@@ -2,7 +2,6 @@ const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
-const { putObject } = require("../util/putObject");
 const { v4: uuidv4 } = require("uuid"); // ✅ Import UUID to generate unique file names
 
 
@@ -33,56 +32,53 @@ const courseSchema = Joi.object({
 
 module.exports = {
   // Register a new course
-async registerCourse(req,res) {
-  try {
-    const { error, value } = courseSchema.validate(req.body, { allowUnknown: true });
-    if (error) {
-        return res.status(400).json({ error: error.details.map(detail => detail.message) });
-    }
+  async registerCourse(req, res){
+    try {
+      const { error, value } = courseSchema.validate(req.body, { allowUnknown: true });
+      if (error) {
+          return res.status(400).json({ error: error.details.map(detail => detail.message) });
+      }
 
-    let { course_videos, course_lessons, course_files, course_image } = req.body;
+      let { course_videos, course_lessons, course_files, course_image } = req.body;
 
-    // ✅ استخدم رابط الملف الذي أعاده `multer-s3`
-    if (req.files?.course_image) {
-        course_image = req.files.course_image[0].location;
-    }
+      if (req.files?.course_image) {
+          course_image = req.files.course_image[0].location;
+      }
 
-    if (req.files?.course_videos) {
-        course_videos = req.files.course_videos.map(video => video.location);
-    }
+      if (req.files?.course_videos) {
+          course_videos = req.files.course_videos.map(video => video.location);
+      }
 
-    if (req.files?.course_lessons) {
-        course_lessons = req.files.course_lessons.map((video, index) => ({
-            subject: req.body.course_lessons?.[index]?.subject || `Lesson ${index + 1}`,
-            description: req.body.course_lessons?.[index]?.description || "No description",
-            vid_url: video.location,
-        }));
-    }
+      if (req.files?.course_lessons) {
+          course_lessons = req.files.course_lessons.map((video, index) => ({
+              subject: req.body.course_lessons?.[index]?.subject || `Lesson ${index + 1}`,
+              description: req.body.course_lessons?.[index]?.description || "No description",
+              vid_url: video.location,
+          }));
+      }
 
-    if (req.files?.course_files) {
-        course_files = req.files.course_files.map(file => ({
-            file_name: file.originalname,
-            file_url: file.location,
-        }));
-    }
+      if (req.files?.course_files) {
+          course_files = req.files.course_files.map(file => ({
+              file_name: file.originalname,
+              file_url: file.location,
+          }));
+      }
 
-    // ✅ حفظ بيانات الكورس في قاعدة البيانات
-    const courseData = {
-        ...req.body,
-        course_image,
-        course_videos,
-        course_lessons,
-        course_files,
-    };
+      const courseData = {
+          ...req.body,
+          course_image,
+          course_videos,
+          course_lessons,
+          course_files,
+      };
 
-    const newCourse = await CourseModel.createCourse(courseData);
-    res.status(201).json({ message: "Course registered successfully", course: newCourse });
+      const newCourse = await CourseModel.createCourse(courseData);
+      res.status(201).json({ message: "Course registered successfully", course: newCourse });
 
-} catch (error) {
-    res.status(500).json({ error: "Error registering course", details: error.message });
-}
-},
- 
+  } catch (error) {
+      res.status(500).json({ error: "Error registering course", details: error.message });
+  }
+  },
   
 
   // Get all courses
