@@ -11,8 +11,8 @@ const multer = require("multer");
 
 
 // S3 things
-const upload = multer(); // ✅ إعداد `multer` لاستقبال الملفات بدون تعديل
-
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage }); 
 
 
 router.post("/upload", upload.single("file"), CourseController.postToS3Bucket);

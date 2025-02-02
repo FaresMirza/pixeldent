@@ -47,7 +47,7 @@ module.exports = {
             throw new Error("الملف المرفوع فارغ.");
         }
 
-        // ✅ رفع الملف بدون تعديل على حجمه أو بياناته الأصلية
+        // ✅ رفع الملف بدون تعديل لحجمه
         const fileUrl = await uploadFileToS3(
             uploadedFile.buffer,
             uploadedFile.originalname,
