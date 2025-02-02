@@ -1,5 +1,5 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const { Readable } = require("stream");
+// const { Readable } = require("stream");
 
 // Initialize S3 Client
 const s3 = new S3Client({
@@ -17,7 +17,7 @@ module.exports = {
             const uploadParams = {
                 Bucket: process.env.AWS_S3_BUCKET,
                 Key: key,
-                Body: Readable.from(fileBuffer),
+                Body: fileBuffer,
                 ContentType: fileMimeType,
                 ContentLength: fileBuffer.length,
                 ACL: "public-read" // ✅ Fix for "undefined" header issue
