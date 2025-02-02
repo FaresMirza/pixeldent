@@ -35,17 +35,23 @@ module.exports = {
   // Register a new course
 async postFile(req,res) {
   try {
-    if (!req.body || req.body.length === 0) {
+    if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const fileName = `images/${Date.now()}`; // ✅ Generate unique file name
-    const fileMimeType = req.headers["content-type"] || "application/octet-stream"; // ✅ Detect MIME type
+    const file = req.file;
+    const fileName = `uploads/${Date.now()}-${file.originalname}`; // ✅ Preserve original file name
+    const fileMimeType = file.mimetype; // ✅ Detect file type automatically
 
-    // ✅ Directly upload the raw binary data
-    const { url, key } = await putObject(req.body, fileName, fileMimeType);
+    // ✅ Upload file to S3
+    const { url, key } = await putObject(file.buffer, fileName, fileMimeType);
 
-    res.status(200).json({ message: "File uploaded successfully", fileUrl: url, fileKey: key });
+    res.status(200).json({
+        message: "File uploaded successfully",
+        fileUrl: url,
+        fileKey: key
+    });
+
 } catch (error) {
     console.error("❌ Upload Error:", error);
     res.status(500).json({ error: "Error Uploading file", details: error.message });

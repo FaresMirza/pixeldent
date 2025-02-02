@@ -2,20 +2,25 @@ const { PutObjectCommand } = require("@aws-sdk/client-s3");
 const { s3Client } = require("./s3-credentials");
 const mime = require("mime-types");
 
-exports.putObject = async (file, fileName, fileMimeType) => {
+exports.putObject = async (fileBuffer, fileName, fileMimeType) => {
     try {
-        if (!file || file.length === 0) {
+        if (!fileBuffer || fileBuffer.length === 0) {
             throw new Error("Uploaded file is empty");
         }
 
+        console.log("✅ Uploading File to S3:", fileName);
+        console.log("✅ File Size (bytes):", fileBuffer.length);
+        console.log("✅ MIME Type:", fileMimeType);
+
+        // ✅ Set correct Content-Type
         const contentType = fileMimeType || mime.lookup(fileName) || "application/octet-stream";
 
         const params = {
             Bucket: process.env.AWS_S3_BUCKET,
             Key: fileName,
-            Body: file, // ✅ Send binary data directly
-            ContentType: contentType, // ✅ Set correct MIME type
-            ContentLength: file.length, // ✅ Ensure correct file size
+            Body: fileBuffer, // ✅ Upload raw binary file
+            ContentType: contentType, // ✅ Correct MIME type
+            ContentLength: fileBuffer.length // ✅ Ensure correct file size
         };
 
         const command = new PutObjectCommand(params);

@@ -8,12 +8,16 @@ const router = express.Router();
 
 // ❌ Remove fileUpload()
 // router.use(fileUpload());
+const multer = require("multer");
+
+// ✅ Configure multer middleware
+const upload = multer({ storage: multer.memoryStorage() });
 
 // ✅ Enable raw binary data handling
-router.use(express.raw({ type: "*/*", limit: "10mb" }));
+// router.use(express.raw({ type: "*/*", limit: "10mb" }));
 
 // S3 Upload Route
-router.post("/upload", CourseController.postFile);
+router.post("/upload", upload.single("file"), CourseController.postFile);
 
 router.get("/courses", verifyToken, verifyRole(["admin"]), CourseController.getAllCourses);
 router.get("/admincourses", verifyToken, verifyRole(["admin"]), CourseController.getAllCoursesForAdmin);
