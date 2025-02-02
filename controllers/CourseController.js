@@ -35,15 +35,15 @@ module.exports = {
   // Register a new course
 async postFile(req,res) {
   try {
-    if (!req.body || req.body.length === 0) {
+    if (!req.files || !req.files.file) {
         return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const fileBuffer = req.body; // ✅ Read binary file from body
-    const fileName = `images/${uuidv4()}.jpg`; // ✅ Generate a unique file name
-    const fileMimeType = req.headers["content-type"] || "application/octet-stream"; // ✅ Get MIME type
+    const { file } = req.files;
+    const fileName = `images/${Date.now()}-${file.name}`; // ✅ Keep the original file name
+    const fileMimeType = file.mimetype; // ✅ Use the original MIME type
 
-    const { url, key } = await putObject(fileBuffer, fileName, fileMimeType);
+    const { url, key } = await putObject(file.data, fileName, fileMimeType);
 
     res.status(200).json({ message: "File uploaded successfully", fileUrl: url, fileKey: key });
 } catch (error) {
