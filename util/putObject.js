@@ -7,7 +7,7 @@ exports.putObject = async(file,fileName) =>{
 try{
     const params = {
         Bucket: process.env.AWS_S3_BUCKET,
-        Key: `fileName`,
+        Key: `${fileName}`,
         Body: file,
         ContentType: "image/jpg,jpeg,png"
 
