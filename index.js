@@ -4,10 +4,8 @@ const UserRoutes = require("./routes/UserRoutes"); // Import user routes
 const SuperAdminRoutes = require("./routes/SuperAdminRoutes")
 const AdminRoutes = require("./routes/AdminRoutes")
 const AuthRoutes = require("./routes/AuthRoutes")
-const fileUpload = require("express-fileupload");
 
 const app = express();
-app.use(fileUpload());
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true }));
 
