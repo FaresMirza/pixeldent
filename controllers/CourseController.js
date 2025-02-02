@@ -78,7 +78,6 @@ module.exports = {
 
       const courseData = {
           course_id: `course-${Date.now()}`,
-          created_by: user_id,
           ...req.body,
           course_image,
           course_videos,
