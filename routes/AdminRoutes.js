@@ -11,12 +11,7 @@ const router = express.Router();
 
 router.post(
     "/courses",
-    upload.fields([
-        { name: "course_image", maxCount: 1 },
-        { name: "course_videos", maxCount: 5 },
-        { name: "course_lessons", maxCount: 10 },
-        { name: "course_files", maxCount: 10 }
-    ]),
+    upload.any(),
     CourseController.registerCourse
 );
 
