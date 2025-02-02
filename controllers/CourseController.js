@@ -42,72 +42,43 @@ async registerCourse(req,res) {
 
     let { course_videos, course_lessons, course_files, course_image } = req.body;
 
-    // ✅ Upload course image to S3
-    if (req.files && req.files.course_image) {
-        const image = req.files.course_image;
-        const fileName = `course-images/${Date.now()}-${image.originalname}`;
-        const { url } = await putObject(image.buffer, fileName, image.mimetype);
-        course_image = url; 
+    // ✅ استخدم رابط الملف الذي أعاده `multer-s3`
+    if (req.files?.course_image) {
+        course_image = req.files.course_image[0].location;
     }
 
-    // ✅ Upload course videos to S3
-    if (req.files && req.files.course_videos) {
-        const uploadedVideos = await Promise.all(
-            req.files.course_videos.map(async (video) => {
-                const fileName = `videos/${Date.now()}-${video.originalname}`;
-                const { url } = await putObject(video.buffer, fileName, video.mimetype);
-                return url;
-            })
-        );
-        course_videos = uploadedVideos;
+    if (req.files?.course_videos) {
+        course_videos = req.files.course_videos.map(video => video.location);
     }
 
-    // ✅ Upload lesson videos **with subject & description**
-    if (req.files && req.files.course_lessons) {
-        course_lessons = await Promise.all(
-            req.files.course_lessons.map(async (video, index) => {
-                const subject = req.body.course_lessons[index]?.subject || `Lesson ${index + 1}`;
-                const description = req.body.course_lessons[index]?.description || "No description provided";
-
-                const fileName = `lesson-videos/${Date.now()}-${video.originalname}`;
-                const { url } = await putObject(video.buffer, fileName, video.mimetype);
-
-                return {
-                    subject,
-                    description,
-                    vid_url: url, // ✅ Store S3 URL
-                };
-            })
-        );
+    if (req.files?.course_lessons) {
+        course_lessons = req.files.course_lessons.map((video, index) => ({
+            subject: req.body.course_lessons?.[index]?.subject || `Lesson ${index + 1}`,
+            description: req.body.course_lessons?.[index]?.description || "No description",
+            vid_url: video.location,
+        }));
     }
 
-    // ✅ Upload course files to S3
-    if (req.files && req.files.course_files) {
-        const uploadedFiles = await Promise.all(
-            req.files.course_files.map(async (file) => {
-                const fileName = `course-files/${Date.now()}-${file.originalname}`;
-                const { url } = await putObject(file.buffer, fileName, file.mimetype);
-                return { file_name: file.originalname, file_url: url };
-            })
-        );
-        course_files = uploadedFiles;
+    if (req.files?.course_files) {
+        course_files = req.files.course_files.map(file => ({
+            file_name: file.originalname,
+            file_url: file.location,
+        }));
     }
 
-    // ✅ Create course object
+    // ✅ حفظ بيانات الكورس في قاعدة البيانات
     const courseData = {
         ...req.body,
         course_image,
         course_videos,
-        course_lessons, // ✅ Now includes subject & description
+        course_lessons,
         course_files,
     };
 
-    // ✅ Save course to DB
     const newCourse = await CourseModel.createCourse(courseData);
     res.status(201).json({ message: "Course registered successfully", course: newCourse });
 
 } catch (error) {
-    console.error("❌ Error registering course:", error);
     res.status(500).json({ error: "Error registering course", details: error.message });
 }
 },
