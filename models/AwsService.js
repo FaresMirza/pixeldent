@@ -25,7 +25,9 @@ async function uploadFileToS3(fileBuffer, fileName, fileMimeType) {
         Bucket: process.env.AWS_S3_BUCKET,
         Key: key,
         Body: fileStream, // ✅ رفع الملف كـ Stream
-        ContentType: fileMimeType || "application/octet-stream"
+        ContentType: fileMimeType || "application/octet-stream",
+        ContentLength: fileBuffer.length // ✅ تحديد حجم الملف بدقة
+
     };
 
     await s3.send(new PutObjectCommand(uploadParams));
