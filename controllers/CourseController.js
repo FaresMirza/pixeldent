@@ -3,7 +3,7 @@ const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
 const { putObject } = require("../util/putObject");
-const { v4 } = require("uuid");
+const { v4: uuidv4 } = require("uuid"); // ✅ Import UUID to generate unique file names
 
 
 // Joi schema for course validation
@@ -34,14 +34,20 @@ const courseSchema = Joi.object({
 module.exports = {
   // Register a new course
 async postFile(req,res) {
-try{
-const {file} = req.files 
-const fileName = "images/"+v4()
+  try {
+    if (!req.files || !req.files.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+    }
 
-const {url,key} = await putObject(file.data,fileName)
-}catch(error){
-  res.status(500).json({ error: "Error Uploading file", details: error.message });
+    const { file } = req.files;
+    const fileName = `images/${uuidv4()}`; // ✅ Generate unique file name
 
+    const { url, key } = await putObject(file.data, fileName);
+
+    res.status(200).json({ message: "File uploaded successfully", fileUrl: url, fileKey: key });
+} catch (error) {
+    console.error("Upload Error:", error);
+    res.status(500).json({ error: "Error Uploading file", details: error.message });
 }
 },
  
