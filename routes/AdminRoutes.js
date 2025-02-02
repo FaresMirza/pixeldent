@@ -2,8 +2,11 @@ const express = require("express");
 const UserController = require("../controllers/UserController");
 const BookController = require("../controllers/BookController")
 const CourseController = require("../controllers/CourseController")
+const fileUpload = require("express-fileupload");
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 const router = express.Router();
+router.use(fileUpload());
+
 
 // S3 things
 

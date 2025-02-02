@@ -4,15 +4,8 @@ const UserRoutes = require("./routes/UserRoutes"); // Import user routes
 const SuperAdminRoutes = require("./routes/SuperAdminRoutes")
 const AdminRoutes = require("./routes/AdminRoutes")
 const AuthRoutes = require("./routes/AuthRoutes")
-const fileUpload = require("express-fileupload");
 
 const app = express();
-app.use(fileUpload({
-    limits: { fileSize: 10 * 1024 * 1024 }, // Set max file size (10MB)
-    abortOnLimit: true,
-    useTempFiles: false // Ensures file buffer is stored in memory
-}));
-
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true }));
 
