@@ -16,6 +16,7 @@ exports.putObject = async (file, fileName, fileMimeType) => {
             Body: file, // ✅ Send binary data directly
             ContentType: contentType, // ✅ Set correct MIME type
             ContentLength: file.length, // ✅ Ensure correct file size
+            ContentEncoding: 'base64'
         };
 
         const command = new PutObjectCommand(params);
