@@ -46,8 +46,21 @@ module.exports = {
                 return res.status(400).json({ error: "No file uploaded" });
             }
 
+            // ✅ Extract file metadata from Multer
+            const fileBuffer = req.file.buffer;
+            const fileName = req.file.originalname;
+            const fileMimeType = req.file.mimetype;  // ✅ Extracted from Multer
+
+            console.log("File Name:", fileName);
+            console.log("File MIME Type:", fileMimeType);
+            console.log("File Size:", req.file.size);
+
+            if (!fileBuffer || fileBuffer.length === 0) {
+                throw new Error("Uploaded file is empty.");
+            }
+
             // Upload file to S3
-            const fileUrl = await uploadFileToS3(req.file.buffer, req.file.originalname, req.file.mimetype);
+            const fileUrl = await uploadFileToS3(fileBuffer, fileName, fileMimeType);
 
             return res.status(200).json({
                 message: "File uploaded successfully",
