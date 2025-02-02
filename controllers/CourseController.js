@@ -38,29 +38,29 @@ module.exports = {
   async postToS3Bucket(req, res) {
     try {
         if (!req.files || !req.files.file) {
-            return res.status(400).json({ error: "No file uploaded" });
+            return res.status(400).json({ error: "لم يتم تحميل أي ملف." });
         }
 
         const uploadedFile = req.files.file;
 
         if (uploadedFile.size === 0) {
-            throw new Error("Uploaded file is empty.");
+            throw new Error("الملف المرفوع فارغ.");
         }
 
-        // ✅ Upload while keeping file data unchanged
+        // ✅ رفع الملف باستخدام Stream لضمان عدم تلفه
         const fileUrl = await uploadFileToS3(
-            Buffer.from(uploadedFile.data), 
+            uploadedFile.data, // **لا نستخدم Buffer هنا**
             uploadedFile.name,
             uploadedFile.mimetype
         );
 
         return res.status(200).json({
-            message: "File uploaded successfully",
+            message: "تم رفع الملف بنجاح!",
             fileUrl: fileUrl
         });
 
     } catch (error) {
-        return res.status(500).json({ error: "Error uploading file", details: error.message });
+        return res.status(500).json({ error: "خطأ أثناء رفع الملف", details: error.message });
     }
 },
 
