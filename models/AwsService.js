@@ -22,7 +22,9 @@ module.exports = {
             Bucket: process.env.AWS_S3_BUCKET,
             Key: key,
             Body: fileStream, // ✅ استخدام Stream بدلاً من Buffer
-            ContentType: fileMimeType
+            ContentType: fileMimeType,
+            ContentLength: fileBuffer.length // ✅ تحديد الحجم لمنع الخطأ
+
         }));
 
         return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION_S3}.amazonaws.com/${key}`;
