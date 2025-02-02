@@ -1,8 +1,8 @@
 const shortid = require("shortid");
 const CourseModel = require("../models/CourseModel");
-const { uploadFileToS3 } = require("../models/AwsService");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
+const fileUpload = require("express-fileupload");
 const upload = require("../models/AwsService");
 
 
