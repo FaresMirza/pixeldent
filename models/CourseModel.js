@@ -11,8 +11,11 @@ const TABLE_NAME = "COURSES";
 module.exports = {
   async createCourse(course) {
     const params = { TableName: TABLE_NAME, Item: course };
+
     await dynamoDB.send(new PutCommand(params));
-  },
+
+    return course; // ✅ Return the saved course
+},
 
   async getAllCourses() {
     const params = { TableName: TABLE_NAME };
