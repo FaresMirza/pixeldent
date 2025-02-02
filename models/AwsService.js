@@ -9,6 +9,10 @@ const s3 = new S3Client({
 
 module.exports = {
     async uploadFileToS3(fileBuffer, fileName, fileMimeType) {
+        if (!fileBuffer || fileBuffer.length === 0) {
+            throw new Error("فشل الرفع: الملف فارغ.");
+        }
+
         const key = `uploads/${Date.now()}-${fileName}`;
 
         // ✅ تحويل الملف إلى Stream
@@ -19,7 +23,8 @@ module.exports = {
             Key: key,
             Body: fileStream,
             ContentType: fileMimeType,
-            Metadata: { "Transfer-Encoding": "chunked" }, // ✅ تأكيد أن النقل يتم باستخدام chunked encoding
+            ContentLength: fileBuffer.length, // ✅ تحديد حجم الملف لمنع الخطأ
+            Metadata: { "Transfer-Encoding": "chunked" } // ✅ تأكيد أن النقل يتم باستخدام chunked encoding
         }));
 
         return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION_S3}.amazonaws.com/${key}`;
