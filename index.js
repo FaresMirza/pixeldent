@@ -33,4 +33,27 @@ app.use("/pixeldent/superadmin", SuperAdminRoutes);
 app.use("/pixeldent/admin", AdminRoutes);
 app.use("/pixeldent/auth", AuthRoutes);
 
-module.exports.handler = serverless(app);
+// ✅ Handle EventBridge Events
+const handleEventBridge = async (event) => {
+    console.log("Received EventBridge event:", JSON.stringify(event, null, 2));
+
+    // Process the event here (if needed)
+    return {
+        statusCode: 200,
+        body: JSON.stringify({ message: "EventBridge Triggered Lambda Successfully!" }),
+    };
+};
+
+// ✅ Lambda Handler Function (Handles BOTH API & EventBridge)
+module.exports.handler = async (event, context) => {
+    console.log("Received Event:", JSON.stringify(event, null, 2));
+
+    // 🔹 Check if the request comes from API Gateway (Express.js)
+    if (event.requestContext && event.requestContext.apiId) {
+        console.log("Handling API Gateway request");
+        return serverless(app)(event, context);
+    } else {
+        console.log("Handling EventBridge event");
+        return handleEventBridge(event);
+    }
+};
