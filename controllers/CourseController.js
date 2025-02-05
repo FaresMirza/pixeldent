@@ -3,7 +3,7 @@ const CourseModel = require("../models/CourseModel");
 const UserModel = require("../models/UserModel");
 const Joi = require("joi");
 const { v4: uuidv4 } = require("uuid"); // ✅ Import UUID to generate unique file names
-const { generatePresignedUrl } = require("../util/uploadService");
+const uploadFileToS3 = require("../util/fileUploadConfig");
 
 
 
@@ -38,46 +38,62 @@ module.exports = {
     try {
       let course_image, course_videos = [], course_lessons = [], course_files = [];
 
-      // ✅ توليد `Pre-signed URL` للصورة
-      if (req.files.course_image) {
-          const image = req.files.course_image;
-          course_image = await generatePresignedUrl(image.name, image.mimetype);
-      }
+      if (req.files) {
+          console.log("✅ الملفات المستلمة:", req.files);
 
-      // ✅ توليد `Pre-signed URLs` للفيديوهات العامة
-      if (req.files.course_videos) {
-          const videos = Array.isArray(req.files.course_videos) ? req.files.course_videos : [req.files.course_videos];
-          course_videos = await Promise.all(
-              videos.map(async (video) =>
-                  generatePresignedUrl(video.name, video.mimetype)
-              )
-          );
-      }
+          // ✅ رفع صورة الكورس
+          if (req.files.course_image) {
+              course_image = await uploadFileToS3(
+                  req.files.course_image.data,
+                  req.files.course_image.name,
+                  req.files.course_image.mimetype
+              );
+          }
 
-      // ✅ توليد `Pre-signed URLs` لدروس الفيديو
-      if (req.files.course_lessons) {
-          const lessons = Array.isArray(req.files.course_lessons) ? req.files.course_lessons : [req.files.course_lessons];
+          // ✅ رفع الفيديوهات العامة
+          if (req.files.course_videos) {
+              const videos = Array.isArray(req.files.course_videos) ? req.files.course_videos : [req.files.course_videos];
+              course_videos = await Promise.all(
+                  videos.map(async (video) =>
+                      uploadFileToS3(video.data, video.name, video.mimetype)
+                  )
+              );
+          }
+
+          // ✅ **رفع دروس الفيديو مع `subject` و `description` و `video`**
           course_lessons = await Promise.all(
-              lessons.map(async (lesson, index) => ({
-                  subject: req.body[`course_lessons[${index}][subject]`] || `Lesson ${index + 1}`,
-                  description: req.body[`course_lessons[${index}][description]`] || "No description",
-                  vid_url: await generatePresignedUrl(lesson.name, lesson.mimetype)
-              }))
+              Object.keys(req.body)
+                  .filter(key => key.match(/^course_lessons\[(\d+)\]\[subject\]$/))
+                  .map(async key => {
+                      const index = key.match(/\d+/)[0];
+
+                      const subject = req.body[`course_lessons[${index}][subject]`] || `Lesson ${index + 1}`;
+                      const description = req.body[`course_lessons[${index}][description]`] || "No description";
+
+                      // ✅ التحقق مما إذا كان هناك فيديو لهذا الدرس
+                      let vid_url = null;
+                      if (req.files[`course_lessons[${index}][video]`]) {
+                          const video = req.files[`course_lessons[${index}][video]`];
+                          vid_url = await uploadFileToS3(video.data, video.name, video.mimetype);
+                      }
+
+                      return { subject, description, vid_url };
+                  })
           );
+
+          // ✅ **رفع `course_files` إلى S3**
+          if (req.files.course_files) {
+              const files = Array.isArray(req.files.course_files) ? req.files.course_files : [req.files.course_files];
+              course_files = await Promise.all(
+                  files.map(async (file) => ({
+                      file_name: file.name,
+                      file_url: await uploadFileToS3(file.data, file.name, file.mimetype)
+                  }))
+              );
+          }
       }
 
-      // ✅ توليد `Pre-signed URLs` للملفات
-      if (req.files.course_files) {
-          const files = Array.isArray(req.files.course_files) ? req.files.course_files : [req.files.course_files];
-          course_files = await Promise.all(
-              files.map(async (file) => ({
-                  file_name: file.name,
-                  file_url: await generatePresignedUrl(file.name, file.mimetype)
-              }))
-          );
-      }
-
-      // ✅ إعداد بيانات الكورس
+      // ✅ **إعداد بيانات الكورس**
       const courseData = {
           course_id: `course-${Date.now()}`,
           ...req.body,
@@ -87,14 +103,8 @@ module.exports = {
           course_files,
       };
 
-      // ✅ حفظ بيانات الكورس في `DynamoDB`
       const newCourse = await CourseModel.createCourse(courseData);
-
-      res.status(201).json({
-          message: "Course registered successfully, upload files using pre-signed URLs",
-          course: newCourse,
-          presignedUrls: { course_image, course_videos, course_lessons, course_files }
-      });
+      res.status(201).json({ message: "Course registered successfully", course: newCourse });
 
   } catch (error) {
       console.error("❌ Internal Server Error:", error);
