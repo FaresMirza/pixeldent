@@ -8,7 +8,7 @@ const router = express.Router();
 
 
 
-router.post("/courses",CourseController.registerCourse);
+router.post("/courses",verifyToken, verifyRole(["admin"]),CourseController.registerCourse);
 
 router.get("/courses", verifyToken, verifyRole(["admin"]), CourseController.getAllCourses);
 router.get("/admincourses", verifyToken, verifyRole(["admin"]), CourseController.getAllCoursesForAdmin);
