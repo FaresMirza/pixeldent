@@ -9,7 +9,11 @@ const fileUpload = require("express-fileupload");
 
 const app = express();
 app.use(express.json()); // Parse JSON bodies
-app.use(fileUpload()); // ✅ تمكين رفع الملفات
+
+app.use(fileUpload({
+    limits: { fileSize: 50 * 1024 * 1024 }, // يسمح برفع ملفات تصل إلى 50MB
+}));
+
 app.use(express.urlencoded({ extended: true }));
 
 
