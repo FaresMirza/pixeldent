@@ -8,38 +8,40 @@ const uploadFileToS3 = require("../util/fileUploadConfig");
 
 
 // Joi schema for course validation
-const courseSchema = Joi.object({
-  course_name: Joi.string().min(1),
-  course_description: Joi.string(),
-  course_price: Joi.number().positive(),
-  course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())),
-  course_image: Joi.string().optional(),
-  course_videos: Joi.array().items(Joi.string()), // New addition
-  course_lessons: Joi.array().items(
-    Joi.object({
-      subject: Joi.string(),
-      description: Joi.string(),
-      vid_url: Joi.string().uri(),
-    })
-  ),
-  course_files: Joi.array().items(
-    Joi.object({
-      file_name: Joi.string(),
-      file_url: Joi.string().uri(),
-    })
-  ),
-  course_published: Joi.boolean(),
-});
+// const courseSchema = Joi.object({
+//   course_name: Joi.string().min(1),
+//   course_description: Joi.string(),
+//   course_price: Joi.number().positive(),
+//   course_instructor: Joi.alternatives().try(Joi.string(), Joi.array().items(Joi.string())),
+//   course_image: Joi.string().optional(),
+//   course_videos: Joi.array().items(Joi.string()), // New addition
+//   course_lessons: Joi.array().items(
+//     Joi.object({
+//       subject: Joi.string(),
+//       description: Joi.string(),
+//       vid_url: Joi.string().uri(),
+//     })
+//   ),
+//   course_files: Joi.array().items(
+//     Joi.object({
+//       file_name: Joi.string(),
+//       file_url: Joi.string().uri(),
+//     })
+//   ),
+//   course_published: Joi.boolean(),
+// });
 
 
 module.exports = {
   // Register a new course
-  async registerCourse(req, res){
+  async registerCourse(req, res) {
     try {
       let course_image, course_videos = [], course_lessons = [], course_files = [];
 
       if (req.files) {
-          // ✅ رفع صورة الكورس إلى S3
+          console.log("✅ الملفات المستلمة:", req.files);
+
+          // ✅ رفع صورة الكورس
           if (req.files.course_image) {
               course_image = await uploadFileToS3(
                   req.files.course_image.data,
@@ -48,7 +50,7 @@ module.exports = {
               );
           }
 
-          // ✅ رفع الفيديوهات إلى S3
+          // ✅ رفع الفيديوهات العامة
           if (req.files.course_videos) {
               const videos = Array.isArray(req.files.course_videos) ? req.files.course_videos : [req.files.course_videos];
               course_videos = await Promise.all(
@@ -58,19 +60,28 @@ module.exports = {
               );
           }
 
-          // ✅ رفع دروس الفيديو مع `subject` و `description`
-          if (req.files.course_lessons) {
-              const lessons = Array.isArray(req.files.course_lessons) ? req.files.course_lessons : [req.files.course_lessons];
-              course_lessons = await Promise.all(
-                  lessons.map(async (lesson, index) => ({
-                      subject: req.body[`course_lessons[${index}][subject]`] || `Lesson ${index + 1}`,
-                      description: req.body[`course_lessons[${index}][description]`] || "No description",
-                      vid_url: await uploadFileToS3(lesson.data, lesson.name, lesson.mimetype)
-                  }))
-              );
-          }
+          // ✅ **رفع دروس الفيديو مع `subject` و `description` و `video`**
+          course_lessons = await Promise.all(
+              Object.keys(req.body)
+                  .filter(key => key.match(/^course_lessons\[(\d+)\]\[subject\]$/))
+                  .map(async key => {
+                      const index = key.match(/\d+/)[0];
 
-          // ✅ **إصلاح مشكلة `course_files` وجعلها تعمل بشكل صحيح**
+                      const subject = req.body[`course_lessons[${index}][subject]`] || `Lesson ${index + 1}`;
+                      const description = req.body[`course_lessons[${index}][description]`] || "No description";
+
+                      // ✅ التحقق مما إذا كان هناك فيديو لهذا الدرس
+                      let vid_url = null;
+                      if (req.files[`course_lessons[${index}][video]`]) {
+                          const video = req.files[`course_lessons[${index}][video]`];
+                          vid_url = await uploadFileToS3(video.data, video.name, video.mimetype);
+                      }
+
+                      return { subject, description, vid_url };
+                  })
+          );
+
+          // ✅ **رفع `course_files` إلى S3**
           if (req.files.course_files) {
               const files = Array.isArray(req.files.course_files) ? req.files.course_files : [req.files.course_files];
               course_files = await Promise.all(
@@ -82,13 +93,14 @@ module.exports = {
           }
       }
 
+      // ✅ **إعداد بيانات الكورس**
       const courseData = {
           course_id: `course-${Date.now()}`,
           ...req.body,
           course_image,
           course_videos,
           course_lessons,
-          course_files, // ✅ تأكدنا الآن أن الملفات سيتم رفعها وحفظها بشكل صحيح
+          course_files,
       };
 
       const newCourse = await CourseModel.createCourse(courseData);
@@ -98,7 +110,7 @@ module.exports = {
       console.error("❌ Internal Server Error:", error);
       res.status(500).json({ error: "Internal Server Error", details: error.message });
   }
-  },
+},
   
 
   // Get all courses
