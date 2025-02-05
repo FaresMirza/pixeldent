@@ -5,7 +5,7 @@ const CourseController = require("../controllers/CourseController");
 const { verifyToken, verifyRole } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
-
+//
 
 
 router.post("/courses",verifyToken, verifyRole(["admin"]),CourseController.registerCourse);
