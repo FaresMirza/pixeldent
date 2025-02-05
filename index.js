@@ -34,11 +34,5 @@ app.use("/pixeldent/superadmin", SuperAdminRoutes);
 app.use("/pixeldent/admin", AdminRoutes);
 app.use("/pixeldent/auth", AuthRoutes);
 
-// ✅ Error Handling Middleware
-app.use((err, req, res, next) => {
-    console.error("Express Error:", err);
-    res.status(500).json({ error: "Internal Server Error" });
-});
-
-// ✅ Export Lambda Handler (Handles ONLY API Gateway Requests)
+// ✅ Export as a Serverless Handler
 module.exports.handler = serverless(app);
